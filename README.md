@@ -28,6 +28,10 @@ things.
 
 ---
 
+<p align="center">
+  <img src="docs/assets/luohai-comic.png" alt="LuoHai（海珞）Skill comic" />
+</p>
+
 ## Capabilities
 
 These are the capabilities the Skill declares at runtime. Anything not listed is

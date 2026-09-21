@@ -22,6 +22,10 @@
 
 ---
 
+<p align="center">
+  <img src="docs/assets/luohai-comic.png" alt="LuoHai（海珞）能力与边界示意" />
+</p>
+
 ## 能力范围
 
 下表为 Skill 在运行时声明能力，未列出的能力即未实现。
