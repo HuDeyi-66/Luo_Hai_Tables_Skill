@@ -1,0 +1,13 @@
+# Normalize every text file to LF, in the working tree and on checkout.
+#
+# Why this file exists: Git for Windows defaults to core.autocrlf=true, which
+# rewrites text files to CRLF on checkout. The frozen runtime modules and the
+# committed LF fixtures are checked against their recorded content digests, so
+# without this pin a fresh Windows clone would fail those checks and the LF
+# fixture assertions. With it, the working tree is byte-identical on Windows,
+# macOS and Linux.
+* text=auto eol=lf
+
+# Binary container fixtures: never touch these.
+*.xlsx binary
+*.whl binary

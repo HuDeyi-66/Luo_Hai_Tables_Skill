@@ -1,0 +1,263 @@
+{
+  "absent_coordinates": [
+    {
+      "ref": "A4",
+      "sheet": "CitationTable"
+    },
+    {
+      "ref": "B4",
+      "sheet": "CitationTable"
+    },
+    {
+      "ref": "C4",
+      "sheet": "CitationTable"
+    },
+    {
+      "ref": "A5",
+      "sheet": "CitationTable"
+    },
+    {
+      "ref": "B5",
+      "sheet": "CitationTable"
+    },
+    {
+      "ref": "C5",
+      "sheet": "CitationTable"
+    },
+    {
+      "ref": "C6",
+      "sheet": "CitationTable"
+    },
+    {
+      "ref": "C2",
+      "sheet": "RaggedTable"
+    }
+  ],
+  "citation_truth": {
+    "canonical_citation": {
+      "column_header": "2024",
+      "column_index": 3,
+      "reason": "three cells hold the number 42, a row label alone matches three cells, and the pair (Shanghai, 2024) matches two different tables; only worksheet + bounds + row header + column header isolates exactly one cell",
+      "ref": "C2",
+      "region_id": "table:CitationTable:A1:C3",
+      "row_header": "Shanghai",
+      "row_index": 2,
+      "sheet_name": "CitationTable",
+      "table_context_required": true,
+      "unit": "CitationTable A1:C3",
+      "value": 42
+    },
+    "expected_answer": 42,
+    "fixture": "luohai_tabular_controlled.xlsx",
+    "interpretations": [
+      {
+        "id": "cell_only_42",
+        "reason": "42 occurs at CitationTable!C2, CitationTable!C3 and RaggedTable!C3; a bare value does not locate anything",
+        "resolves_query": false,
+        "selector": {
+          "value": 42
+        }
+      },
+      {
+        "id": "bare_row_label_shanghai",
+        "reason": "a row label matches every cell of that row, so it can never identify a single cell",
+        "resolves_query": false,
+        "selector": {
+          "row_header": "Shanghai"
+        }
+      },
+      {
+        "id": "row_label_plus_column_without_table_context",
+        "reason": "the same intersection matches CitationTable!C2 and RaggedTable!C2, so header-only selection is not unique",
+        "resolves_query": false,
+        "selector": {
+          "column_header": "2024",
+          "row_header": "Shanghai"
+        }
+      },
+      {
+        "expected_ref": "C2",
+        "id": "row_label_plus_column_inside_table",
+        "resolves_query": true,
+        "selector": {
+          "column_header": "2024",
+          "region_id": "table:CitationTable:A1:C3",
+          "row_header": "Shanghai",
+          "sheet_name": "CitationTable"
+        }
+      },
+      {
+        "expected_ref": "C3",
+        "id": "cjk_row_label_plus_column_inside_table",
+        "note": "the CJK twin of the canonical query; without table identity the two are indistinguishable",
+        "resolves_query": true,
+        "selector": {
+          "column_header": "2024",
+          "region_id": "table:CnTable:A1:C3",
+          "row_header": "上海",
+          "sheet_name": "CnTable"
+        }
+      },
+      {
+        "expected_ref": "B2",
+        "expected_value_kind": "empty",
+        "id": "empty_cell_inside_region",
+        "resolves_query": true,
+        "selector": {
+          "ref": "B2",
+          "sheet_name": "RaggedTable"
+        }
+      },
+      {
+        "expected_ref": "C2",
+        "expected_value_kind": "absent",
+        "id": "absent_coordinate_inside_region",
+        "resolves_query": true,
+        "selector": {
+          "ref": "C2",
+          "sheet_name": "RaggedTable"
+        }
+      },
+      {
+        "id": "coordinate_outside_region",
+        "reason": "C7 is outside the region bounds",
+        "resolves_query": false,
+        "selector": {
+          "ref": "C7",
+          "sheet_name": "CitationTable"
+        }
+      }
+    ],
+    "query": "the 2024 throughput of the Shanghai row in the first table",
+    "recurrence_facts": {
+      "column_header_2024_occurrences": [
+        "CitationTable!C1",
+        "CnTable!C1",
+        "RaggedTable!C1"
+      ],
+      "note": "The row label and the column header are each non-unique. A row label alone matches every cell in that row (three cells), and the pair (Shanghai, 2024) matches two different tables (CitationTable!C2 and RaggedTable!C2). Worksheet/bounds identity is therefore required, not merely convenient. An earlier plan note claimed the intersection alone was sufficient; that claim was wrong, and the fixture keeps the counter-example rather than hiding it.",
+      "row_header_ningbo_occurrences": [
+        "CitationTable!A3",
+        "CitationTable!A6",
+        "RaggedTable!A3"
+      ],
+      "row_header_shanghai_occurrences": [
+        "CitationTable!A2",
+        "CnTable!A2"
+      ],
+      "value_42_occurrences": [
+        "CitationTable!C2",
+        "CitationTable!C3",
+        "RaggedTable!C3"
+      ]
+    },
+    "schema_version": "seaflow-v2.1-citation-truth/v1",
+    "tables": {
+      "CitationTable": {
+        "bounds": "A1:C3",
+        "column_headers": {
+          "2023": "B",
+          "2024": "C"
+        },
+        "detected_as": "two blocks at the default gap tolerance: A1:C3 and A6:B6; one region A1:C6 at gap_tolerance >= 3",
+        "header_row": 1,
+        "label_cell": null,
+        "row_label_column": "A",
+        "sheet_name": "CitationTable",
+        "trailing_block": {
+          "bounds": "A6:B6",
+          "note": "row 6 holds a label and one value but no third cell, so the detector emits it as its own one-row block rather than silently extending the table above it"
+        }
+      },
+      "CnTable": {
+        "bounds": "A1:C3",
+        "column_headers": {
+          "2023": "B",
+          "2024": "C"
+        },
+        "header_row": 1,
+        "row_label_column": "A",
+        "sheet_name": "CnTable"
+      },
+      "LossTable": {
+        "bounds": "A1:C2",
+        "column_headers": {
+          "Detail": "B",
+          "Unresolved": "C"
+        },
+        "header_row": 1,
+        "row_label_column": "A",
+        "sheet_name": "LossTable"
+      },
+      "RaggedTable": {
+        "bounds": "A1:C4",
+        "column_headers": {
+          "2023": "B",
+          "2024": "C"
+        },
+        "header_row": 1,
+        "note": "row 2 is short of the region width (B2 is present but blank, C2 has no cell element); row 4 also demonstrates that the text '42' is not the number 42",
+        "ragged_row": 2,
+        "row_label_column": "A",
+        "sheet_name": "RaggedTable"
+      }
+    }
+  },
+  "fixture": "luohai_tabular_controlled.xlsx",
+  "fixture_sha256": "055085cd1264e82588ab1cb3d034fc9e55deacc1f1ada53ef07310fa3846d3e2",
+  "known_silent_loss": [
+    {
+      "construct": "t=\"e\" error value #DIV/0!",
+      "coordinate": "LossTable!A2",
+      "expected_signal": "loss:absent|empty|unsupported|error-kind cell",
+      "id": "error_value",
+      "why": "the V2.0C AU-03 record shows this arriving as \"\" through the calamine binding, indistinguishable from an empty cell"
+    },
+    {
+      "construct": "<f>1+2</f> with no <v>",
+      "coordinate": "LossTable!C2",
+      "expected_signal": "loss:unsupported plus formula text retained",
+      "id": "unresolved_formula",
+      "why": "a formula with no cached value must not be reported as blank"
+    },
+    {
+      "construct": "<c r=\"B2\" t=\"s\"><v>0</v></c> pointing at an empty shared string",
+      "coordinate": "RaggedTable!B2",
+      "expected_signal": "loss:empty",
+      "id": "present_but_blank",
+      "why": "empty must stay distinct from absent"
+    },
+    {
+      "construct": "no cell element inside the declared region bounds",
+      "coordinate": "RaggedTable!C2",
+      "expected_signal": "loss:absent",
+      "id": "coordinate_absent",
+      "why": "a missing coordinate is not an empty value"
+    }
+  ],
+  "provisional": true,
+  "schema_version": "seaflow-v2.1-fixture-truth/v1",
+  "shared_strings": [
+    "",
+    "Port",
+    "Shanghai",
+    "Ningbo",
+    "港口",
+    "上海",
+    "宁波",
+    "2023",
+    "2024",
+    "Sample",
+    "Detail",
+    "Unresolved",
+    "42"
+  ],
+  "sheets": [
+    "CitationTable",
+    "LossTable",
+    "CnTable",
+    "RaggedTable",
+    "EmptyCase"
+  ],
+  "workbook_date_system": "1900"
+}

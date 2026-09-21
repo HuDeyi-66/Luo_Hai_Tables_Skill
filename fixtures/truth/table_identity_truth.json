@@ -1,0 +1,158 @@
+{
+  "absent_coordinates": [
+    {
+      "ref": "C5",
+      "sheet": "TwoAdjacentTables"
+    },
+    {
+      "ref": "A4",
+      "sheet": "BlankSeparated"
+    },
+    {
+      "ref": "B4",
+      "sheet": "BlankSeparated"
+    },
+    {
+      "ref": "C4",
+      "sheet": "BlankSeparated"
+    },
+    {
+      "ref": "C2",
+      "sheet": "RaggedRows"
+    },
+    {
+      "ref": "A3",
+      "sheet": "HiddenAxes"
+    },
+    {
+      "ref": "B3",
+      "sheet": "HiddenAxes"
+    },
+    {
+      "ref": "C3",
+      "sheet": "HiddenAxes"
+    },
+    {
+      "ref": "A4",
+      "sheet": "HiddenAxes"
+    },
+    {
+      "ref": "B4",
+      "sheet": "HiddenAxes"
+    },
+    {
+      "ref": "C4",
+      "sheet": "HiddenAxes"
+    },
+    {
+      "ref": "A4",
+      "sheet": "DuplicateHeaders"
+    },
+    {
+      "ref": "B4",
+      "sheet": "DuplicateHeaders"
+    },
+    {
+      "ref": "C4",
+      "sheet": "DuplicateHeaders"
+    },
+    {
+      "ref": "A4",
+      "sheet": "TwinSameSheet"
+    },
+    {
+      "ref": "B4",
+      "sheet": "TwinSameSheet"
+    },
+    {
+      "ref": "C4",
+      "sheet": "TwinSameSheet"
+    },
+    {
+      "ref": "A5",
+      "sheet": "TwinSameSheet"
+    },
+    {
+      "ref": "B5",
+      "sheet": "TwinSameSheet"
+    },
+    {
+      "ref": "C5",
+      "sheet": "TwinSameSheet"
+    },
+    {
+      "ref": "A6",
+      "sheet": "TwinSameSheet"
+    },
+    {
+      "ref": "B6",
+      "sheet": "TwinSameSheet"
+    },
+    {
+      "ref": "C6",
+      "sheet": "TwinSameSheet"
+    }
+  ],
+  "boundary_expectations": {
+    "BlankSeparated": {
+      "blocks": 2,
+      "expectation": "split at gap_tolerance=0; merged at gap_tolerance>=1",
+      "shape": "two tables separated by exactly one blank row"
+    },
+    "DuplicateHeaders": {
+      "blocks": 2,
+      "expectation": "header values alone cannot separate the tables by position; only the range can",
+      "shape": "two tables with identical header VALUES (Port, 2023, 2024) but in different column order in the second table"
+    },
+    "HiddenAxes": {
+      "blocks": 2,
+      "expectation": "hidden axes are reported per address; the two tables differ in column width (3 then 2), so their bounds differ",
+      "shape": "column C hidden and row 4 hidden; two stacked tables"
+    },
+    "MergedCells": {
+      "blocks": 1,
+      "expectation": "merge ranges are read; covered addresses are reported as merge-covered rather than absent",
+      "shape": "merged title A1:C1 and merged row label A2:A3"
+    },
+    "RaggedRows": {
+      "blocks": 1,
+      "expectation": "ragged row detection; B2 empty, C2 absent",
+      "shape": "row 2 is short of the region width"
+    },
+    "SideBySide": {
+      "blocks": 1,
+      "expectation": "KNOWN LIMITATION: the detector groups by row, so two side-by-side tables become one region spanning both, with the blank separator reported as an empty column",
+      "shape": "two tables on the same rows, in different column ranges"
+    },
+    "SingleTable": {
+      "blocks": 1,
+      "expectation": "one region; address is a sufficient identity because nothing else in the sheet looks like a table",
+      "shape": "single continuous table"
+    },
+    "TwinSameSheet": {
+      "blocks": 2,
+      "expectation": "the strongest ambiguity case: header values identical, content fingerprint identical, only the address differs",
+      "shape": "two tables with byte-identical content at different addresses in the same sheet"
+    },
+    "TwoAdjacentTables": {
+      "blocks": 1,
+      "expectation": "the detector should not see a row gap, so it emits ONE region spanning both tables and the region bounds do not correspond to either real table",
+      "shape": "two tables stacked with no separating blank row and a changed column structure (3 columns then 2)"
+    }
+  },
+  "fixture": "luohai_table_identity.xlsx",
+  "fixture_sha256": "0cb4126f17516c50779e05b56ee0ceec8be9f0f247c815747c7ac6086302f650",
+  "provisional": true,
+  "schema_version": "seaflow-v2.1.1-table-identity-truth/v1",
+  "sheets": [
+    "SingleTable",
+    "TwoAdjacentTables",
+    "BlankSeparated",
+    "MergedCells",
+    "RaggedRows",
+    "HiddenAxes",
+    "DuplicateHeaders",
+    "TwinSameSheet",
+    "SideBySide"
+  ]
+}

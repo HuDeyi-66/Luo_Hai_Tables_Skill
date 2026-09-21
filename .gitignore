@@ -1,0 +1,16 @@
+# Generated scratch output from the test suite. The suite uses fixed filenames
+# and removes them on a best-effort basis; this pattern is the safety net.
+artifacts/
+
+# Optional locked comparison binding. It is not distributed with this
+# repository; a caller who supplies the recorded wheel places it here and its
+# SHA-256 is re-checked before use.
+.spike/
+
+# Bytecode and caches
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/

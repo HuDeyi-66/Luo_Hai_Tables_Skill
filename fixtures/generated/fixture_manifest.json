@@ -1,0 +1,48 @@
+{
+  "bytes": 3496,
+  "determinism": {
+    "expected_byte_identical_rebuild": true,
+    "part_order": "fixed by build_parts()",
+    "shared_string_order": "fixed by SHARED_STRINGS",
+    "zip_member_timestamps": "pinned to 1980-01-01T00:00:00"
+  },
+  "fixture": "luohai_tabular_controlled.xlsx",
+  "generated_by": "fixtures/build_fixture.py",
+  "phase": "V2.1-T1",
+  "purpose": "controlled XLSX covering repeated labels, two tables in one sheet, an error value, an unresolved formula, a present-but-blank cell, an absent coordinate and a ragged row",
+  "schema_version": "seaflow-v2.1-fixture-manifest/v1",
+  "sha256": "055085cd1264e82588ab1cb3d034fc9e55deacc1f1ada53ef07310fa3846d3e2",
+  "sheets": [
+    {
+      "declared_rows": 6,
+      "index": 1,
+      "name": "CitationTable",
+      "spec": "hand-written OOXML; see fixtures/build_fixture.py"
+    },
+    {
+      "declared_rows": 2,
+      "index": 2,
+      "name": "LossTable",
+      "spec": "hand-written OOXML; see fixtures/build_fixture.py"
+    },
+    {
+      "declared_rows": 3,
+      "index": 3,
+      "name": "CnTable",
+      "spec": "hand-written OOXML; see fixtures/build_fixture.py"
+    },
+    {
+      "declared_rows": 4,
+      "index": 4,
+      "name": "RaggedTable",
+      "spec": "hand-written OOXML; see fixtures/build_fixture.py"
+    },
+    {
+      "declared_rows": 0,
+      "index": 5,
+      "name": "EmptyCase",
+      "spec": "hand-written OOXML; see fixtures/build_fixture.py"
+    }
+  ],
+  "truth": "citation_truth.json"
+}
