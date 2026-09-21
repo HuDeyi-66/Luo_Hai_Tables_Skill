@@ -23,9 +23,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import _bootstrap  # noqa: E402
 
-from core.artifact import Artifact  # noqa: E402
-from core.evidence import LossKind, UnitClass  # noqa: E402
-from core.skill_result import Capability, Support  # noqa: E402
+from skills.luohai.contracts import TableArtifact  # noqa: E402
+from skills.luohai.contracts import TableLossKind, TableUnitClass  # noqa: E402
+from skills.luohai.contracts import TableCapability, TableSupport  # noqa: E402
 from skills.luohai.backends import (  # noqa: E402
     CalamineBackend,
     FakeTabularBackend,
@@ -34,8 +34,8 @@ from skills.luohai.backends import (  # noqa: E402
 from skills.luohai import TabularEvidenceSkill  # noqa: E402
 
 
-def fixture_artifact() -> Artifact:
-    return Artifact.from_file(_bootstrap.FIXTURE_PATH, "art-fixture")
+def fixture_artifact() -> TableArtifact:
+    return TableArtifact.from_file(_bootstrap.FIXTURE_PATH, "art-fixture")
 
 
 class FakeBackendInterfaceTests(unittest.TestCase):
@@ -57,7 +57,7 @@ class FakeBackendInterfaceTests(unittest.TestCase):
         result = self.skill.run(fixture_artifact(), source_id="src-1")
         self.assertEqual(len(result.units), 1)
         unit = result.units[0]
-        self.assertEqual(unit.unit_class, UnitClass.CONTENT)
+        self.assertEqual(unit.unit_class, TableUnitClass.CONTENT)
         self.assertEqual(unit.payload["tabular"]["bounds"], "A1:C3")
         self.assertEqual(unit.payload["tabular"]["sheet_name"], "Sheet1")
         self.assertEqual(unit.producer.backend_id, "fake.tabular")
@@ -73,10 +73,10 @@ class FakeBackendInterfaceTests(unittest.TestCase):
     def test_capability_statement_names_supported_and_unsupported(self) -> None:
         capabilities = {c.name: c for c in self.skill.capabilities()}
         self.assertIn("tabular_evidence_units", capabilities)
-        self.assertEqual(capabilities["tabular_evidence_units"].support, Support.SUPPORTED)
-        self.assertEqual(capabilities["csv_read"].support, Support.UNSUPPORTED)
+        self.assertEqual(capabilities["tabular_evidence_units"].support, TableSupport.SUPPORTED)
+        self.assertEqual(capabilities["csv_read"].support, TableSupport.UNSUPPORTED)
         self.assertEqual(
-            capabilities["confidence_scoring"].support, Support.UNSUPPORTED
+            capabilities["confidence_scoring"].support, TableSupport.UNSUPPORTED
         )
 
     def test_skill_reports_unsupported_capabilities_in_diagnostics(self) -> None:
@@ -111,13 +111,13 @@ class FailClosedTests(unittest.TestCase):
         self.assertEqual(result.units[0].source_id, "src-from-object")
 
     def test_artifact_without_a_location_fails_closed(self) -> None:
-        artifact = Artifact(artifact_id="a", digest="d" * 64, location=None)
+        artifact = TableArtifact(artifact_id="a", digest="d" * 64, location=None)
         result = self.skill.run(artifact, source_id="src-1")
         self.assertTrue(result.diagnostics.has_fatal_error)
         self.assertEqual(result.diagnostics.errors[0].code, "artifact_has_no_location")
 
     def test_artifact_digest_mismatch_fails_closed_before_backend_use(self) -> None:
-        artifact = Artifact(
+        artifact = TableArtifact(
             artifact_id="tampered",
             digest="0" * 64,
             media_type=(
@@ -137,7 +137,7 @@ class FailClosedTests(unittest.TestCase):
         target = _bootstrap.artifacts_dir() / f"integrity_mutation_{os.getpid()}.xlsx"
         target.write_bytes(_bootstrap.FIXTURE_PATH.read_bytes())
         try:
-            artifact = Artifact.from_file(target, "mutated")
+            artifact = TableArtifact.from_file(target, "mutated")
             target.write_bytes(target.read_bytes() + b"changed-after-registration")
             result = self.skill.run(artifact, source_id="src-1")
             self.assertEqual(result.units, ())
@@ -149,7 +149,7 @@ class FailClosedTests(unittest.TestCase):
             target.unlink(missing_ok=True)
 
     def test_non_xlsx_media_type_is_warned_not_silently_accepted(self) -> None:
-        artifact = Artifact.from_file(
+        artifact = TableArtifact.from_file(
             _bootstrap.FIXTURE_PATH, "a", media_type="text/csv"
         )
         result = self.skill.run(artifact, source_id="src-1")
@@ -270,23 +270,23 @@ class DeclaredRiskPropagationTests(unittest.TestCase):
             [FakeTabularBackend.make_sheet("S", (["a", "b"], [1, 2]))],
             capabilities=(
                 # Declares it may collapse errors, and surfaces nothing.
-                Capability(
+                TableCapability(
                     name="error_state",
-                    support=Support.UNSUPPORTED,
+                    support=TableSupport.UNSUPPORTED,
                     detail="may collapse",
-                    collapse_risks=(LossKind.EMPTY,),
+                    collapse_risks=(TableLossKind.EMPTY,),
                 ),
             ),
         )
-        backend.DECLARED_COLLAPSE_RISKS = (LossKind.EMPTY,)
+        backend.DECLARED_COLLAPSE_RISKS = (TableLossKind.EMPTY,)
         skill = TabularEvidenceSkill(backend)
 
         result = skill.run(fixture_artifact(), source_id="src-1")
         self.assertFalse(result.is_complete_success)
-        self.assertEqual(result.unsurfaced_risks, (LossKind.EMPTY,))
+        self.assertEqual(result.unsurfaced_risks, (TableLossKind.EMPTY,))
         self.assertTrue(
             any(
-                w.code == f"declared_risk_not_surfaced:{LossKind.EMPTY}"
+                w.code == f"declared_risk_not_surfaced:{TableLossKind.EMPTY}"
                 for w in result.diagnostics.warnings
             )
         )
@@ -300,7 +300,7 @@ class DeclaredRiskPropagationTests(unittest.TestCase):
             ),
         )
         backend = FakeTabularBackend([sheet])
-        backend.DECLARED_COLLAPSE_RISKS = (LossKind.ABSENT,)
+        backend.DECLARED_COLLAPSE_RISKS = (TableLossKind.ABSENT,)
         skill = TabularEvidenceSkill(backend)
 
         result = skill.run(fixture_artifact(), source_id="src-1")
@@ -310,7 +310,7 @@ class DeclaredRiskPropagationTests(unittest.TestCase):
         # ...but the absent cell was still observed, so this is not a
         # lossless read and must not be reported as a complete success.
         self.assertFalse(result.is_complete_success)
-        self.assertIn(LossKind.ABSENT, result.diagnostics.observed_loss_kinds)
+        self.assertIn(TableLossKind.ABSENT, result.diagnostics.observed_loss_kinds)
 
 
 class FallbackProofWithBindingDisabledTests(unittest.TestCase):
@@ -323,7 +323,7 @@ class FallbackProofWithBindingDisabledTests(unittest.TestCase):
         stub = types.SimpleNamespace()
         unavailable = CalamineBackend(module=stub)
         self.assertFalse(unavailable.is_available())
-        self.assertNotEqual(unavailable.capabilities()[0].support, Support.SUPPORTED)
+        self.assertNotEqual(unavailable.capabilities()[0].support, TableSupport.SUPPORTED)
 
         skill = TabularEvidenceSkill(backends=[unavailable, FixtureXlsxBackend()])
         result = skill.run(fixture_artifact(), source_id="src-1")

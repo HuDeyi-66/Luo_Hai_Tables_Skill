@@ -18,7 +18,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Sequence
 
-from core.evidence import LossKind
+from .contracts import TableLossKind
 
 from .backends import ObservedCell, ObservedSheet
 from . import ooxml
@@ -45,7 +45,7 @@ def is_populated(cell: ObservedCell) -> bool:
     if cell.value_kind == "error":
         return True
     if cell.loss:
-        return not (set(cell.loss) <= {LossKind.EMPTY, LossKind.ABSENT})
+        return not (set(cell.loss) <= {TableLossKind.EMPTY, TableLossKind.ABSENT})
     if cell.value is None:
         return False
     if isinstance(cell.value, str) and cell.value == "":
@@ -200,7 +200,7 @@ def _region_from_rows(sheet: ObservedSheet, rows: Sequence[int]) -> TableRegion 
         row for row in rows if max(c.column for c in group_cells if c.row == row) < max_col
     )
     if ragged_rows:
-        loss.append(LossKind.ABSENT)
+        loss.append(TableLossKind.ABSENT)
         warnings.append(
             f"sheet {sheet.name!r}: rows {list(ragged_rows)} do not span the full "
             f"region width; cells inside the bounds may be absent rather than empty"
@@ -223,7 +223,7 @@ def _region_from_rows(sheet: ObservedSheet, rows: Sequence[int]) -> TableRegion 
             elif cell.merged_from:
                 absent_cells.append(ref)
     if empty_cells or absent_cells:
-        loss.append(LossKind.EMPTY)
+        loss.append(TableLossKind.EMPTY)
 
     # Label cell: the cell immediately above the bounds when it holds text.
     label_cell_ref: str | None = None

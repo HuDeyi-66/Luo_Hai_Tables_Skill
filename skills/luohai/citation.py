@@ -1,8 +1,8 @@
-"""Citation reconstruction from an ``EvidenceUnit``.
+"""Citation reconstruction from an ``TableEvidenceUnit``.
 
 This module is the payoff test for the whole slice. It answers one question:
 
-    given an EvidenceUnit that claims to locate something, can an independent
+    given an TableEvidenceUnit that claims to locate something, can an independent
     caller rebuild a *unique, checkable* citation to it -- or does the unit
     learn that it cannot?
 
@@ -29,7 +29,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
-from core.evidence import EvidenceUnit, LossKind
+from .contracts import TableEvidenceUnit, TableLossKind
 
 from . import ooxml
 from .table_context import (
@@ -350,7 +350,7 @@ class Ambiguous:
         }
 
 
-def _region_block(unit: EvidenceUnit) -> Mapping[str, Any] | None:
+def _region_block(unit: TableEvidenceUnit) -> Mapping[str, Any] | None:
     payload = unit.payload or {}
     block = payload.get("tabular")
     if not isinstance(block, Mapping):
@@ -358,20 +358,20 @@ def _region_block(unit: EvidenceUnit) -> Mapping[str, Any] | None:
     return block
 
 
-def blocked_by_loss(unit: EvidenceUnit) -> str | None:
+def blocked_by_loss(unit: TableEvidenceUnit) -> str | None:
     """Return a reason string when the unit cannot support a citation.
 
     A unit that already reports ``FAILED`` or ``SILENT_LOSS_RISK`` must not be
     used to produce a confident citation.
     """
-    if LossKind.FAILED in unit.loss:
+    if TableLossKind.FAILED in unit.loss:
         return "unit reports extraction failure"
     if unit.self_errors:
         return "unit carries an extraction error"
     return None
 
 
-def iter_cells(unit: EvidenceUnit) -> tuple[Mapping[str, Any], ...]:
+def iter_cells(unit: TableEvidenceUnit) -> tuple[Mapping[str, Any], ...]:
     """Yield the cell dictionaries of a tabular payload, if any."""
     block = _region_block(unit)
     if block is None:
@@ -434,7 +434,7 @@ def _parse_range(text: str) -> tuple[str, str, int, int, int, int]:
 
 
 def _resolve_range(
-    unit: EvidenceUnit,
+    unit: TableEvidenceUnit,
     block: Mapping[str, Any],
     cells: tuple[Mapping[str, Any], ...],
     selector: CitationSelector,
@@ -488,7 +488,7 @@ def _resolve_range(
                     "column": col,
                     "value": None,
                     "value_kind": "absent",
-                    "loss": [LossKind.ABSENT],
+                    "loss": [TableLossKind.ABSENT],
                     "notes": ["no cell element at this inside-bounds address"],
                 }
             else:
@@ -581,18 +581,18 @@ def _selector_invalid(selector: CitationSelector) -> str | None:
     return None
 
 
-def _context_hints(unit: EvidenceUnit) -> Mapping[str, Any] | None:
+def _context_hints(unit: TableEvidenceUnit) -> Mapping[str, Any] | None:
     """The candidate context hints a unit carries, or ``None``.
 
     Reads the experimental ``metadata["table_context"]`` convention through a
     Skill-side helper. Core is not involved: this module never asks
-    ``EvidenceUnit`` for anything table-shaped, and never writes to a unit.
+    ``TableEvidenceUnit`` for anything table-shaped, and never writes to a unit.
     """
     return unit_context_hints(unit)
 
 
 def _table_candidate(
-    unit: EvidenceUnit, candidate: str, hint: str, score: str
+    unit: TableEvidenceUnit, candidate: str, hint: str, score: str
 ) -> TableCandidate:
     context = unit_table_context(unit) or {}
     values = context.get("context_values") or {}
@@ -723,7 +723,7 @@ def _value_matches(actual: Any, expected: Any, strict_kind: bool = True) -> bool
 
 
 def resolve_citation(
-    unit: EvidenceUnit,
+    unit: TableEvidenceUnit,
     selector: CitationSelector,
 ) -> Citation | Ambiguous | Unresolved:
     """Rebuild a citation from one unit, or explain why it cannot be rebuilt."""
@@ -817,7 +817,7 @@ def resolve_citation(
         if inside:
             # The coordinate is inside the region bounds but has no cell: an
             # explicit 'absent' rather than a silent miss.
-            loss = (LossKind.ABSENT,)
+            loss = (TableLossKind.ABSENT,)
             synthetic = {
                 "ref": target,
                 "row": ooxml.parse_cell_reference(target)[0],
@@ -906,7 +906,7 @@ def _as_resolved(
 
 
 def _build(
-    unit: EvidenceUnit,
+    unit: TableEvidenceUnit,
     block: Mapping[str, Any],
     cell: Mapping[str, Any],
     selector: CitationSelector,

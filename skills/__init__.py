@@ -1,12 +1,12 @@
-"""LuoHai Skill surface.
+"""LuoHai package surface.
 
-This repository publishes exactly one Skill package, ``skills.luohai``. The
-LuoHai repository has no dependency on ShanHai and must not acquire one, so this
-package deliberately aggregates only LuoHai.
+This repository publishes exactly one Skill package, ``skills.luohai``. LuoHai
+has no dependency on ShanHai and must not acquire one, so this package
+deliberately aggregates only LuoHai.
 
-In the composite three-repository checkout, SeaFlow provides a ``skills``
-package that aggregates both Skills. That aggregator is an integration
-convenience; the isolation guarantee is that neither Skill *package* imports the
+Unlike an earlier revision, this file no longer describes a shared runtime
+aggregator: LuoHai is standalone, and a runtime that integrates it does so from
+its own side. The isolation guarantee is that neither Skill *package* imports the
 other, and it is asserted by test.
 """
 

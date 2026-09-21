@@ -27,10 +27,9 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
 import _bootstrap  # noqa: E402
 
-from core.artifact import Artifact  # noqa: E402
-from core.evidence import CitationAddress, EvidenceUnit, LossKind, UnitClass  # noqa: E402
-from core.skill_result import Skill, SkillResult, Support  # noqa: E402
-from core.source import SourceRegistry  # noqa: E402
+from skills.luohai.contracts import TableArtifact  # noqa: E402
+from skills.luohai.contracts import TableCitationAddress, TableEvidenceUnit, TableLossKind, TableUnitClass  # noqa: E402
+from skills.luohai.contracts import TableEvidenceSkill, TableRunResult, TableSupport  # noqa: E402
 from skills.luohai import (  # noqa: E402
     Ambiguous,
     Citation,
@@ -63,23 +62,23 @@ CONTEXT_FIXTURE = (
 
 
 def build(options: dict | None = None):
-    artifact = Artifact.from_file(FIXTURE, "art-fixture")
+    artifact = TableArtifact.from_file(FIXTURE, "art-fixture")
     skill = TabularEvidenceSkill(FixtureXlsxBackend())
     return artifact, skill.run(artifact, source_id="src-1", options=options or {})
 
 
 def build_context_fixture():
-    artifact = Artifact.from_file(CONTEXT_FIXTURE, "art-context")
+    artifact = TableArtifact.from_file(CONTEXT_FIXTURE, "art-context")
     skill = TabularEvidenceSkill(FixtureXlsxBackend())
     return artifact, skill.run(artifact, source_id="src-context")
 
 
-def unit_for(result, container_id: str) -> EvidenceUnit:
+def unit_for(result, container_id: str) -> TableEvidenceUnit:
     return next(u for u in result.units if u.address.container_id == container_id)
 
 
 class Capability_1_SourceArtifactReferenceTests(unittest.TestCase):
-    """Required: Source/Artifact reference on every unit."""
+    """Required: Source/TableArtifact reference on every unit."""
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -95,22 +94,26 @@ class Capability_1_SourceArtifactReferenceTests(unittest.TestCase):
         for unit in self.result.units:
             self.assertEqual(unit.provenance, self.artifact.content_digest)
 
-    def test_a_unit_is_traceable_back_through_a_registry(self) -> None:
-        registry = SourceRegistry()
-        registry.register_source("src-1", label="LuoHai fixture")
-        artifact = registry.register_artifact("src-1", FIXTURE)
-        skill = TabularEvidenceSkill(FixtureXlsxBackend())
-        result = skill.run(artifact, source_id="src-1")
+    def test_a_unit_is_traceable_back_to_the_artifact_it_came_from(self) -> None:
+        """Standalone traceability, without a registry.
 
+        The trace a caller actually re-checks is the artifact identity the Skill
+        records on every unit plus the content digest in that unit's provenance.
+        """
+        artifact = TableArtifact.from_file(FIXTURE, "art-fixture")
+        result = TabularEvidenceSkill(FixtureXlsxBackend()).run(
+            artifact, source_id="src-1"
+        )
+
+        self.assertTrue(result.units)
         for unit in result.units:
-            source = registry.source_of(unit.artifact_id)
-            self.assertEqual(source.source_id, unit.source_id)
-            self.assertEqual(
-                registry.get_artifact(unit.artifact_id).digest, artifact.digest
-            )
+            self.assertEqual(unit.source_id, "src-1")
+            self.assertEqual(unit.artifact_id, artifact.artifact_id)
+            self.assertEqual(unit.provenance, artifact.content_digest)
+        self.assertTrue(artifact.verify_file(FIXTURE))
 
     def test_missing_source_identity_fails_closed(self) -> None:
-        artifact = Artifact.from_file(FIXTURE, "art-fixture")
+        artifact = TableArtifact.from_file(FIXTURE, "art-fixture")
         result = TabularEvidenceSkill(FixtureXlsxBackend()).run(artifact)
         self.assertTrue(result.diagnostics.has_fatal_error)
         self.assertFalse(result.is_complete_success)
@@ -124,7 +127,7 @@ class Capability_2_XlsxExtractionTests(unittest.TestCase):
         cls.artifact, cls.result = build()
 
     def test_the_skill_is_a_core_skill(self) -> None:
-        self.assertIsInstance(TabularEvidenceSkill(FixtureXlsxBackend()), Skill)
+        self.assertIsInstance(TabularEvidenceSkill(FixtureXlsxBackend()), TableEvidenceSkill)
 
     def test_skill_identity_and_version_are_reported(self) -> None:
         self.assertEqual(self.result.skill_id, "LuoHai.TabularEvidence")
@@ -140,8 +143,8 @@ class Capability_2_XlsxExtractionTests(unittest.TestCase):
 
     def test_extraction_produces_typed_units(self) -> None:
         classes = {unit.unit_class for unit in self.result.units}
-        self.assertIn(UnitClass.CONTENT, classes)
-        self.assertIn(UnitClass.CONTAINER, classes)
+        self.assertIn(TableUnitClass.CONTENT, classes)
+        self.assertIn(TableUnitClass.CONTAINER, classes)
 
     def test_callers_own_the_artifact_and_it_is_not_mutated(self) -> None:
         before = FIXTURE.read_bytes()
@@ -158,7 +161,7 @@ class Capability_3_TableContextTests(unittest.TestCase):
 
     def test_every_tabular_unit_carries_context(self) -> None:
         for unit in self.result.units:
-            if unit.unit_class != UnitClass.CONTENT:
+            if unit.unit_class != TableUnitClass.CONTENT:
                 continue
             self.assertIsNotNone(unit_table_context(unit))
 
@@ -346,7 +349,7 @@ class Capability_5_LossDiagnosticsTests(unittest.TestCase):
     def test_distinct_loss_kinds_are_surfaced_on_the_fixture(self) -> None:
         observed = set(self.result.diagnostics.observed_loss_kinds)
         self.assertTrue(
-            {LossKind.EMPTY, LossKind.ABSENT, LossKind.UNSUPPORTED}.issubset(observed),
+            {TableLossKind.EMPTY, TableLossKind.ABSENT, TableLossKind.UNSUPPORTED}.issubset(observed),
             observed,
         )
 
@@ -368,8 +371,8 @@ class Capability_5_LossDiagnosticsTests(unittest.TestCase):
 
     def test_loss_kinds_reach_the_unit_that_owns_them(self) -> None:
         unit = unit_for(self.result, "table:LossTable:A1:C2")
-        self.assertIn(LossKind.UNSUPPORTED, unit.loss)
-        self.assertIn(LossKind.EMPTY, unit.loss)
+        self.assertIn(TableLossKind.UNSUPPORTED, unit.loss)
+        self.assertIn(TableLossKind.EMPTY, unit.loss)
 
     def test_an_error_value_is_not_flattened_into_blank(self) -> None:
         unit = unit_for(self.result, "table:LossTable:A1:C2")
@@ -381,10 +384,10 @@ class Capability_5_LossDiagnosticsTests(unittest.TestCase):
         skill = TabularEvidenceSkill(FixtureXlsxBackend())
         capabilities = {c.name: c for c in skill.capabilities()}
         supported = [
-            c for c in capabilities.values() if c.support == Support.SUPPORTED
+            c for c in capabilities.values() if c.support == TableSupport.SUPPORTED
         ]
         unsupported = [
-            c for c in capabilities.values() if c.support == Support.UNSUPPORTED
+            c for c in capabilities.values() if c.support == TableSupport.UNSUPPORTED
         ]
         self.assertTrue(supported)
         self.assertTrue(unsupported)
@@ -529,7 +532,7 @@ class ProhibitionTests(unittest.TestCase):
         )
 
     def test_core_address_and_unit_classes_are_modality_neutral(self) -> None:
-        address_fields = set(CitationAddress.__dataclass_fields__)  # type: ignore[attr-defined]
+        address_fields = set(TableCitationAddress.__dataclass_fields__)  # type: ignore[attr-defined]
         self.assertTrue(
             {
                 "sheet_id",
@@ -542,8 +545,8 @@ class ProhibitionTests(unittest.TestCase):
             }.isdisjoint(address_fields)
         )
         self.assertEqual(
-            set(UnitClass.ALL),
-            {UnitClass.CONTENT, UnitClass.CONTAINER, UnitClass.UNCLASSIFIED},
+            set(TableUnitClass.ALL),
+            {TableUnitClass.CONTENT, TableUnitClass.CONTAINER, TableUnitClass.UNCLASSIFIED},
         )
 
     def test_live_table_api_uses_context_not_identity_names(self) -> None:
@@ -562,22 +565,22 @@ class ProhibitionTests(unittest.TestCase):
     def test_a_fake_backend_can_drive_the_interface_without_xlsx(self) -> None:
         sheet = FakeTabularBackend.make_sheet("S", (["a", "b"], [1, 2]))
         skill = TabularEvidenceSkill(FakeTabularBackend([sheet]))
-        artifact = Artifact.from_file(FIXTURE, "art-fixture")
+        artifact = TableArtifact.from_file(FIXTURE, "art-fixture")
         result = skill.run(artifact, source_id="src-1")
         self.assertEqual(result.diagnostics.backend_id, "fake.tabular")
         self.assertTrue(result.units)
 
 
 class ResultShapeTests(unittest.TestCase):
-    """The declared output shape: SkillResult -> EvidenceUnit[]."""
+    """The declared output shape: TableRunResult -> TableEvidenceUnit[]."""
 
     @classmethod
     def setUpClass(cls) -> None:
         cls.artifact, cls.result = build()
 
     def test_output_is_a_skill_result_over_evidence_units(self) -> None:
-        self.assertIsInstance(self.result, SkillResult)
-        self.assertTrue(all(isinstance(u, EvidenceUnit) for u in self.result.units))
+        self.assertIsInstance(self.result, TableRunResult)
+        self.assertTrue(all(isinstance(u, TableEvidenceUnit) for u in self.result.units))
 
     def test_result_is_json_serialisable_end_to_end(self) -> None:
         payload = json.loads(json.dumps(self.result.as_dict(), ensure_ascii=False))
@@ -588,7 +591,7 @@ class ResultShapeTests(unittest.TestCase):
 
     def test_unit_payload_rebuilds_through_serialisation(self) -> None:
         unit = unit_for(self.result, "table:CitationTable:A1:C3")
-        restored = EvidenceUnit.from_dict(json.loads(json.dumps(unit.as_dict())))
+        restored = TableEvidenceUnit.from_dict(json.loads(json.dumps(unit.as_dict())))
         self.assertEqual(restored.unit_id, unit.unit_id)
         self.assertEqual(restored.address.as_dict(), unit.address.as_dict())
         self.assertEqual(

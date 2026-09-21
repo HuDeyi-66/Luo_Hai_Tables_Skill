@@ -28,8 +28,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Protocol, Sequence, runtime_checkable
 
-from core.evidence import LossKind
-from core.skill_result import Capability, Support
+from .contracts import TableLossKind
+from .contracts import TableCapability, TableSupport
 
 from . import ooxml
 
@@ -176,7 +176,7 @@ class TabularBackend(Protocol):
         """False when an optional dependency is missing or unusable."""
         ...
 
-    def capabilities(self) -> tuple[Capability, ...]:
+    def capabilities(self) -> tuple[TableCapability, ...]:
         """Declare support *and* known collapse risks for this path."""
         ...
 
@@ -212,7 +212,7 @@ class FakeTabularBackend:
         errors: Sequence[str] = (),
         fatal: bool = False,
         available: bool = True,
-        capabilities: Sequence[Capability] | None = None,
+        capabilities: Sequence[TableCapability] | None = None,
     ) -> None:
         self._sheets = tuple(sheets or ())
         self._loss = tuple(loss)
@@ -221,14 +221,14 @@ class FakeTabularBackend:
         self._fatal = fatal
         self._available = available
         self._capabilities = tuple(capabilities) if capabilities is not None else (
-            Capability(
+            TableCapability(
                 name="xlsx_read",
-                support=Support.SUPPORTED,
+                support=TableSupport.SUPPORTED,
                 detail="in-memory fixture backend; deterministic",
             ),
-            Capability(
+            TableCapability(
                 name="csv_read",
-                support=Support.UNSUPPORTED,
+                support=TableSupport.UNSUPPORTED,
                 detail="V2.1 first slice is XLSX only",
             ),
         )
@@ -237,7 +237,7 @@ class FakeTabularBackend:
     def is_available(self) -> bool:
         return self._available
 
-    def capabilities(self) -> tuple[Capability, ...]:
+    def capabilities(self) -> tuple[TableCapability, ...]:
         return self._capabilities
 
     def load(self, path: str, options: Mapping[str, Any] | None = None) -> ObservedWorkbook:
@@ -285,7 +285,7 @@ class FakeTabularBackend:
                         ref=ref,
                         value=None,
                         value_kind="absent",
-                        loss=(LossKind.ABSENT,),
+                        loss=(TableLossKind.ABSENT,),
                         element_present=False,
                     )
                 elif value == empty_value:
@@ -295,7 +295,7 @@ class FakeTabularBackend:
                         ref=ref,
                         value="",
                         value_kind="empty",
-                        loss=(LossKind.EMPTY,),
+                        loss=(TableLossKind.EMPTY,),
                     )
                 else:
                     kind = (
@@ -321,78 +321,78 @@ class FakeTabularBackend:
 
 #: Content the fixture backend does not read at all, regardless of fixture.
 _FIXTURE_UNSUPPORTED = (
-    Capability(
+    TableCapability(
         name="xlsx_read",
-        support=Support.SUPPORTED,
+        support=TableSupport.SUPPORTED,
         detail="stdlib OOXML package reader; controlled fixtures only",
     ),
-    Capability(
+    TableCapability(
         name="csv_read",
-        support=Support.UNSUPPORTED,
+        support=TableSupport.UNSUPPORTED,
         detail="V2.1 first slice is XLSX only (see skills/TODO.md)",
     ),
-    Capability(
+    TableCapability(
         name="xls_biff",
-        support=Support.UNSUPPORTED,
+        support=TableSupport.UNSUPPORTED,
         detail="legacy binary BIFF not parsed",
     ),
-    Capability(
+    TableCapability(
         name="formula_evaluation",
-        support=Support.UNSUPPORTED,
+        support=TableSupport.UNSUPPORTED,
         detail="read-only; formulas are never evaluated",
     ),
-    Capability(
+    TableCapability(
         name="formula_text",
-        support=Support.SUPPORTED,
+        support=TableSupport.SUPPORTED,
         detail="formula text is read from <f> and kept separate from the cached value",
     ),
-    Capability(
+    TableCapability(
         name="error_state",
-        support=Support.SUPPORTED,
+        support=TableSupport.SUPPORTED,
         detail="t=\"e\" cells are reported as errors, not blank",
     ),
-    Capability(
+    TableCapability(
         name="empty_vs_absent",
-        support=Support.SUPPORTED,
+        support=TableSupport.SUPPORTED,
         detail="a present-but-blank <c> element is 'empty'; a missing element "
                "is 'absent'",
     ),
-    Capability(
+    TableCapability(
         name="merged_cell_state",
-        support=Support.PARTIAL,
+        support=TableSupport.PARTIAL,
         detail="merged ranges are read; a covered address is reported as "
                "merged_from rather than absent",
     ),
-    Capability(
+    TableCapability(
         name="number_format_display",
-        support=Support.UNSUPPORTED,
+        support=TableSupport.UNSUPPORTED,
         detail="no style/number-format rendering; rendered == raw for numbers",
     ),
-    Capability(
+    TableCapability(
         name="hidden_sheet_state",
-        support=Support.SUPPORTED,
+        support=TableSupport.SUPPORTED,
         detail="sheet state is read from workbook.xml",
     ),
-    Capability(
+    TableCapability(
         name="cell_comments",
-        support=Support.UNSUPPORTED,
+        support=TableSupport.UNSUPPORTED,
         detail="comments/threaded comments are not read",
-        collapse_risks=(LossKind.SILENT_LOSS_RISK,),
+        collapse_risks=(TableLossKind.SILENT_LOSS_RISK,),
     ),
-    Capability(
+    TableCapability(
         name="embedded_objects",
-        support=Support.UNSUPPORTED,
+        support=TableSupport.UNSUPPORTED,
         detail="charts, images, OLE objects and pivot tables are not read",
-        collapse_risks=(LossKind.SILENT_LOSS_RISK,),
+        collapse_risks=(TableLossKind.SILENT_LOSS_RISK,),
     ),
-    Capability(
+    TableCapability(
         name="rich_text_runs",
-        support=Support.PARTIAL,
+        support=TableSupport.PARTIAL,
         detail="inline/shared string text is flattened; run-level formatting is lost",
     ),
-    Capability(
+    TableCapability(
         name="large_file_streaming",
-        support=Support.UNKNOWN,
+        support=TableSupport.UNKNOWN,
         detail="no streaming path; whole package is read into memory",
     ),
 )
@@ -430,7 +430,7 @@ class FixtureXlsxBackend:
     def is_available(self) -> bool:
         return True
 
-    def capabilities(self) -> tuple[Capability, ...]:
+    def capabilities(self) -> tuple[TableCapability, ...]:
         return _FIXTURE_UNSUPPORTED
 
     def load(self, path: str, options: Mapping[str, Any] | None = None) -> ObservedWorkbook:
@@ -441,7 +441,7 @@ class FixtureXlsxBackend:
             package = ooxml.read_package(path)
         except ooxml.XlsxPackageError as exc:
             return ObservedWorkbook(
-                loss=(LossKind.FAILED,),
+                loss=(TableLossKind.FAILED,),
                 errors=(f"package_unreadable: {exc}",),
                 fatal=True,
                 backend_id=self.backend_id,
@@ -456,9 +456,9 @@ class FixtureXlsxBackend:
 
         workbook_loss: list[str] = []
         if unread:
-            workbook_loss.append(LossKind.SILENT_LOSS_RISK)
+            workbook_loss.append(TableLossKind.SILENT_LOSS_RISK)
         if package.date_system == "1904":
-            workbook_loss.append(LossKind.NOT_APPLICABLE)
+            workbook_loss.append(TableLossKind.NOT_APPLICABLE)
 
         return ObservedWorkbook(
             sheets=sheets,
@@ -492,12 +492,12 @@ class FixtureXlsxBackend:
             cells[raw.ref] = self._observe_cell(raw, sheet)
         sheet_loss: list[str] = []
         if sheet.is_hidden:
-            sheet_loss.append(LossKind.UNKNOWN)
+            sheet_loss.append(TableLossKind.UNKNOWN)
         if sheet.hidden_rows or sheet.hidden_columns:
             # Content the reader returns but the workbook author does not
             # display. It is a silent-loss risk for any consumer that assumes
             # "what is read" equals "what is shown".
-            sheet_loss.append(LossKind.SILENT_LOSS_RISK)
+            sheet_loss.append(TableLossKind.SILENT_LOSS_RISK)
         return ObservedSheet(
             name=sheet.name,
             index=sheet.index,
@@ -523,21 +523,21 @@ class FixtureXlsxBackend:
         if raw.kind == "blank":
             if raw.element_present:
                 value_kind = "empty"
-                loss.append(LossKind.EMPTY)
+                loss.append(TableLossKind.EMPTY)
             else:
                 value_kind = "absent"
-                loss.append(LossKind.ABSENT)
+                loss.append(TableLossKind.ABSENT)
         elif raw.kind == "error":
             notes.append("worksheet error value preserved as an error")
         elif raw.kind == "unknown":
-            loss.append(LossKind.UNKNOWN)
+            loss.append(TableLossKind.UNKNOWN)
         elif raw.kind in ("string", "inline_string"):
             value_kind = "string"
 
         if raw.formula is not None:
             notes.append("formula text read; cached value is not an evaluation")
             if raw.kind == "blank":
-                loss.append(LossKind.UNSUPPORTED)
+                loss.append(TableLossKind.UNSUPPORTED)
                 notes.append("formula present with no cached value")
 
         merged_from = None
@@ -635,8 +635,8 @@ class CalamineBackend:
     #: Loss kinds this path is known to conflate with a clean value. Declared
     #: up front so the run cannot report a clean success over collapsed data.
     DECLARED_COLLAPSE_RISKS: tuple[str, ...] = (
-        LossKind.COLLAPSE_RISK,
-        LossKind.SILENT_LOSS_RISK,
+        TableLossKind.COLLAPSE_RISK,
+        TableLossKind.SILENT_LOSS_RISK,
     )
 
     def __init__(self, module: Any | None = None) -> None:
@@ -731,89 +731,89 @@ class CalamineBackend:
         )
         return report
 
-    def capabilities(self) -> tuple[Capability, ...]:
+    def capabilities(self) -> tuple[TableCapability, ...]:
         return (
-            Capability(
+            TableCapability(
                 name="xlsx_read",
-                support=Support.SUPPORTED if self.is_available() else Support.UNSUPPORTED,
+                support=TableSupport.SUPPORTED if self.is_available() else TableSupport.UNSUPPORTED,
                 detail="read-only workbook parsing via the locked C06/C07 binding",
             ),
-            Capability(
+            TableCapability(
                 name="csv_read",
-                support=Support.UNSUPPORTED,
+                support=TableSupport.UNSUPPORTED,
                 detail="V2.1 first slice is XLSX only",
             ),
-            Capability(
+            TableCapability(
                 name="formula_evaluation",
-                support=Support.UNSUPPORTED,
+                support=TableSupport.UNSUPPORTED,
                 detail="no evaluation; the stored cache is surfaced verbatim",
             ),
-            Capability(
+            TableCapability(
                 name="formula_text",
-                support=Support.UNSUPPORTED,
+                support=TableSupport.UNSUPPORTED,
                 detail="formula text does not cross the boundary",
-                collapse_risks=(LossKind.COLLAPSE_RISK,),
+                collapse_risks=(TableLossKind.COLLAPSE_RISK,),
             ),
-            Capability(
+            TableCapability(
                 name="error_state",
-                support=Support.UNSUPPORTED,
+                support=TableSupport.UNSUPPORTED,
                 detail="an error value is dropped to an empty string",
-                collapse_risks=(LossKind.EMPTY, LossKind.COLLAPSE_RISK),
+                collapse_risks=(TableLossKind.EMPTY, TableLossKind.COLLAPSE_RISK),
             ),
-            Capability(
+            TableCapability(
                 name="empty_vs_absent",
-                support=Support.UNSUPPORTED,
+                support=TableSupport.UNSUPPORTED,
                 detail="an empty cell and a missing cell are both returned as \"\"",
-                collapse_risks=(LossKind.ABSENT, LossKind.COLLAPSE_RISK),
+                collapse_risks=(TableLossKind.ABSENT, TableLossKind.COLLAPSE_RISK),
             ),
-            Capability(
+            TableCapability(
                 name="empty_sheet",
-                support=Support.UNSUPPORTED,
+                support=TableSupport.UNSUPPORTED,
                 detail="an empty worksheet raises PanicException (a BaseException)",
-                collapse_risks=(LossKind.FAILED,),
+                collapse_risks=(TableLossKind.FAILED,),
             ),
-            Capability(
+            TableCapability(
                 name="merged_cell_state",
-                support=Support.UNSUPPORTED,
+                support=TableSupport.UNSUPPORTED,
                 detail="merge ranges are not exposed; covered cells read as empty",
-                collapse_risks=(LossKind.EMPTY,),
+                collapse_risks=(TableLossKind.EMPTY,),
             ),
-            Capability(
+            TableCapability(
                 name="hidden_sheet_state",
-                support=Support.UNSUPPORTED,
+                support=TableSupport.UNSUPPORTED,
                 detail="sheet visibility is not exposed",
-                collapse_risks=(LossKind.SILENT_LOSS_RISK,),
+                collapse_risks=(TableLossKind.SILENT_LOSS_RISK,),
             ),
-            Capability(
+            TableCapability(
                 name="cell_comments",
-                support=Support.UNSUPPORTED,
+                support=TableSupport.UNSUPPORTED,
                 detail="comments are not exposed",
-                collapse_risks=(LossKind.SILENT_LOSS_RISK,),
+                collapse_risks=(TableLossKind.SILENT_LOSS_RISK,),
             ),
-            Capability(
+            TableCapability(
                 name="embedded_objects",
-                support=Support.UNSUPPORTED,
+                support=TableSupport.UNSUPPORTED,
                 detail="charts, images and OLE objects are not exposed",
-                collapse_risks=(LossKind.SILENT_LOSS_RISK,),
+                collapse_risks=(TableLossKind.SILENT_LOSS_RISK,),
             ),
-            Capability(
+            TableCapability(
                 name="integer_type_preservation",
-                support=Support.UNSUPPORTED,
+                support=TableSupport.UNSUPPORTED,
                 detail="numeric cells widen to float; integer type is not preserved",
-                collapse_risks=(LossKind.COLLAPSE_RISK,),
+                collapse_risks=(TableLossKind.COLLAPSE_RISK,),
             ),
-            Capability(
+            TableCapability(
                 name="number_format_display",
-                support=Support.PARTIAL,
+                support=TableSupport.PARTIAL,
                 detail="python-calamine has a formatted-value accessor, but V2.1 "
                        "does not use it; rendered == raw here",
             ),
-            Capability(
+            TableCapability(
                 name="worksheet_start_offset",
-                support=Support.PARTIAL,
+                support=TableSupport.PARTIAL,
                 detail="per-cell addresses are reconstructed from the row/column "
                        "offset, so leading empty rows/columns are ambiguous",
-                collapse_risks=(LossKind.ABSENT,),
+                collapse_risks=(TableLossKind.ABSENT,),
             ),
         )
 
@@ -821,7 +821,7 @@ class CalamineBackend:
         module = self._import_module()
         if module is None:
             return ObservedWorkbook(
-                loss=(LossKind.UNSUPPORTED,),
+                loss=(TableLossKind.UNSUPPORTED,),
                 errors=("python-calamine is not importable in this interpreter",),
                 fatal=True,
                 backend_id=self.backend_id,
@@ -834,7 +834,7 @@ class CalamineBackend:
             sheet_names = list(workbook.sheet_names)
         except Exception as exc:
             return ObservedWorkbook(
-                loss=(LossKind.FAILED,),
+                loss=(TableLossKind.FAILED,),
                 errors=(f"{type(exc).__name__}: {exc}",),
                 fatal=True,
                 backend_id=self.backend_id,
@@ -886,7 +886,7 @@ class CalamineBackend:
                     name=sheet_name,
                     index=index,
                     cells={},
-                    loss=(LossKind.FAILED, LossKind.COLLAPSE_RISK),
+                    loss=(TableLossKind.FAILED, TableLossKind.COLLAPSE_RISK),
                     notes=(f"reader failure: {problem}",),
                     is_empty=True,
                 ),
@@ -911,7 +911,7 @@ class CalamineBackend:
                 notes: list[str] = []
                 if kind == "empty_or_collapsed":
                     kind = "empty_or_collapsed"
-                    loss.extend((LossKind.COLLAPSE_RISK, LossKind.EMPTY, LossKind.ABSENT))
+                    loss.extend((TableLossKind.COLLAPSE_RISK, TableLossKind.EMPTY, TableLossKind.ABSENT))
                     notes.append(
                         "empty string is ambiguous: an empty cell, a missing "
                         "cell, an error value and an unresolved formula are "
@@ -919,7 +919,7 @@ class CalamineBackend:
                     )
                 if kind == "number":
                     notes.append("numeric value widened to float")
-                    loss.append(LossKind.COLLAPSE_RISK)
+                    loss.append(TableLossKind.COLLAPSE_RISK)
                 if kind == "date" or hasattr(value, "tzinfo"):
                     notes.append("date converted to ISO text by the adapter")
                 if not has_anchor:
@@ -927,7 +927,7 @@ class CalamineBackend:
                         "no anchor was exposed for this sheet; the address was "
                         "reconstructed from iterator offsets"
                     )
-                    loss.append(LossKind.UNKNOWN)
+                    loss.append(TableLossKind.UNKNOWN)
                 cells[ref] = ObservedCell(
                     row=row_index,
                     column=col_index,
@@ -951,7 +951,7 @@ class CalamineBackend:
                 name=sheet_name,
                 index=index,
                 cells=cells,
-                loss=(LossKind.COLLAPSE_RISK, LossKind.SILENT_LOSS_RISK),
+                loss=(TableLossKind.COLLAPSE_RISK, TableLossKind.SILENT_LOSS_RISK),
                 notes=(
                     "hidden state, comments, merge ranges and embedded objects "
                     "are not exposed by this binding",

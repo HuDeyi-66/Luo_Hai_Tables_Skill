@@ -32,14 +32,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import _bootstrap  # noqa: E402
 
-from core.artifact import Artifact  # noqa: E402
-from core.evidence import LossKind, UnitClass  # noqa: E402
+from skills.luohai.contracts import TableArtifact  # noqa: E402
+from skills.luohai.contracts import TableLossKind, TableUnitClass  # noqa: E402
 from skills.luohai.backends import CalamineBackend, FixtureXlsxBackend  # noqa: E402
 from skills.luohai import TabularEvidenceSkill  # noqa: E402
 
 
-def fixture_artifact() -> Artifact:
-    return Artifact.from_file(_bootstrap.FIXTURE_PATH, "art-fixture")
+def fixture_artifact() -> TableArtifact:
+    return TableArtifact.from_file(_bootstrap.FIXTURE_PATH, "art-fixture")
 
 
 def run_fixture_backend(options: dict | None = None):
@@ -71,7 +71,7 @@ class FixtureBackendExtractionTests(unittest.TestCase):
 
     def test_citation_table_yields_the_expected_region(self) -> None:
         unit = unit_for(self.result, "table:CitationTable:A1:C3")
-        self.assertEqual(unit.unit_class, UnitClass.CONTENT)
+        self.assertEqual(unit.unit_class, TableUnitClass.CONTENT)
         self.assertEqual(unit.payload["tabular"]["bounds"], "A1:C3")
         self.assertEqual(unit.payload["tabular"]["sheet_name"], "CitationTable")
         self.assertEqual(unit.payload["tabular"]["sheet_index"], 1)
@@ -144,8 +144,8 @@ class FixtureBackendExtractionTests(unittest.TestCase):
         cells = {c["ref"]: c for c in unit.payload["tabular"]["cells"]}
         self.assertEqual(cells["C2"]["formula"], "1+2")
         self.assertIsNone(cells["C2"]["value"])
-        self.assertIn(LossKind.UNSUPPORTED, cells["C2"]["loss"])
-        self.assertIn(LossKind.UNSUPPORTED, unit.loss)
+        self.assertIn(TableLossKind.UNSUPPORTED, cells["C2"]["loss"])
+        self.assertIn(TableLossKind.UNSUPPORTED, unit.loss)
 
     def test_formula_cache_is_not_an_evaluation(self) -> None:
         unit = unit_for(self.result, "table:LossTable:A1:C2")
@@ -155,16 +155,16 @@ class FixtureBackendExtractionTests(unittest.TestCase):
 
     def test_empty_and_absent_are_distinct_including_for_a_whole_sheet(self) -> None:
         unit = unit_for(self.result, "worksheet:EmptyCase")
-        self.assertEqual(unit.unit_class, UnitClass.CONTAINER)
-        self.assertIn(LossKind.EMPTY, unit.loss)
-        self.assertNotIn(LossKind.ABSENT, unit.loss)
+        self.assertEqual(unit.unit_class, TableUnitClass.CONTAINER)
+        self.assertIn(TableLossKind.EMPTY, unit.loss)
+        self.assertNotIn(TableLossKind.ABSENT, unit.loss)
         self.assertEqual(unit.content["cell_count"], 0)
 
     def test_ragged_row_is_flagged_and_its_missing_cell_is_absent(self) -> None:
         unit = unit_for(self.result, "table:RaggedTable:A1:C4")
         self.assertEqual(unit.payload["tabular"]["ragged_rows"], [2])
-        self.assertIn(LossKind.ABSENT, unit.loss)
-        self.assertIn(LossKind.EMPTY, unit.loss)
+        self.assertIn(TableLossKind.ABSENT, unit.loss)
+        self.assertIn(TableLossKind.EMPTY, unit.loss)
         self.assertTrue(any("do not span the full region width" in w for w in unit.self_warnings))
         cells = {c["ref"]: c for c in unit.payload["tabular"]["cells"]}
         self.assertEqual(cells["B2"]["value_kind"], "empty")
@@ -189,7 +189,7 @@ class FixtureBackendExtractionTests(unittest.TestCase):
         """The fixture contains known loss, so 'complete success' is False."""
         self.assertTrue(self.result.has_no_fatal_condition)
         self.assertFalse(self.result.is_complete_success)
-        self.assertIn(LossKind.EMPTY, self.result.diagnostics.observed_loss_kinds)
+        self.assertIn(TableLossKind.EMPTY, self.result.diagnostics.observed_loss_kinds)
 
     def test_run_is_repeatable(self) -> None:
         first = json.dumps(run_fixture_backend().as_dict(), sort_keys=True)
@@ -223,7 +223,7 @@ class RegionDetectionTests(unittest.TestCase):
     def test_worksheet_units_can_be_suppressed(self) -> None:
         result = run_fixture_backend({"emit_worksheet_units": False})
         self.assertFalse(
-            any(u.unit_class == UnitClass.CONTAINER for u in result.units)
+            any(u.unit_class == TableUnitClass.CONTAINER for u in result.units)
         )
 
 
@@ -256,14 +256,14 @@ class UnreadContentTests(unittest.TestCase):
 
             backend = FixtureXlsxBackend()
             observation = backend.load(str(target))
-            self.assertIn(LossKind.SILENT_LOSS_RISK, observation.loss)
+            self.assertIn(TableLossKind.SILENT_LOSS_RISK, observation.loss)
             self.assertTrue(
                 any("cell_comments" in w for w in observation.warnings),
                 observation.warnings,
             )
 
             skill = TabularEvidenceSkill(FixtureXlsxBackend())
-            artifact = Artifact.from_file(target, "art-comments")
+            artifact = TableArtifact.from_file(target, "art-comments")
             result = skill.run(artifact, source_id="src-1")
             self.assertTrue(
                 any("cell_comments" in w.message for w in result.diagnostics.warnings)
@@ -338,8 +338,8 @@ class CalamineSpikeTests(unittest.TestCase):
         self.assertEqual(cell.value, "")
         # The adapter refuses to call a collapsed "" either empty or absent.
         self.assertEqual(cell.value_kind, "empty_or_collapsed")
-        self.assertIn(LossKind.EMPTY, cell.loss)
-        self.assertIn(LossKind.ABSENT, cell.loss)
+        self.assertIn(TableLossKind.EMPTY, cell.loss)
+        self.assertIn(TableLossKind.ABSENT, cell.loss)
 
     def test_unresolved_formula_is_collapsed_and_the_text_is_lost(self) -> None:
         sheet = self.observation.sheet_by_name("LossTable")
@@ -360,7 +360,7 @@ class CalamineSpikeTests(unittest.TestCase):
         """The binding panics; the adapter must contain it and say so."""
         sheet = self.observation.sheet_by_name("EmptyCase")
         assert sheet is not None
-        self.assertIn(LossKind.FAILED, sheet.loss)
+        self.assertIn(TableLossKind.FAILED, sheet.loss)
         self.assertTrue(sheet.is_empty)
         self.assertTrue(
             any("EmptyCase" in w for w in self.observation.warnings),
@@ -372,7 +372,7 @@ class CalamineSpikeTests(unittest.TestCase):
     def test_hidden_state_comments_and_merges_are_declared_lost(self) -> None:
         sheet = self.observation.sheet_by_name("CnTable")
         assert sheet is not None
-        self.assertIn(LossKind.SILENT_LOSS_RISK, sheet.loss)
+        self.assertIn(TableLossKind.SILENT_LOSS_RISK, sheet.loss)
         self.assertTrue(
             any("hidden state" in note for note in sheet.notes), sheet.notes
         )

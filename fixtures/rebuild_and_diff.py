@@ -11,7 +11,7 @@ What it proves
    byte-identical output, and it matches the committed fixture and the SHA-256
    pinned in ``fixture_manifest.json``.
 2. **Extraction determinism.** Running the Skill repeatedly over the fixture
-   yields structurally identical ``SkillResult`` payloads once run identity and
+   yields structurally identical ``TableRunResult`` payloads once run identity and
    timestamps are removed. A non-deterministic extractor cannot support a
    citation-oriented workflow, so this is checked rather than assumed.
 
@@ -31,7 +31,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from core.artifact import Artifact  # noqa: E402
+from skills.luohai.contracts import TableArtifact  # noqa: E402
 from skills.luohai.backends import FixtureXlsxBackend  # noqa: E402
 from skills.luohai import TabularEvidenceSkill  # noqa: E402
 from fixtures import build_fixture  # noqa: E402
@@ -45,7 +45,7 @@ def _sha256(payload: bytes) -> str:
 
 
 def stable_projection(result: Any) -> dict[str, Any]:
-    """The part of a SkillResult that must not vary between runs."""
+    """The part of a TableRunResult that must not vary between runs."""
     payload = result.as_dict()
     payload.pop("invocation_id", None)
     payload.pop("started_at", None)
@@ -90,7 +90,7 @@ def check_fixture(runs: int) -> list[str]:
 
 def check_extraction(runs: int) -> list[str]:
     problems: list[str] = []
-    artifact = Artifact.from_file(FIXTURE_PATH, "art-fixture")
+    artifact = TableArtifact.from_file(FIXTURE_PATH, "art-fixture")
     skill = TabularEvidenceSkill(FixtureXlsxBackend())
 
     baseline: dict[str, Any] | None = None
@@ -133,7 +133,7 @@ def check_extraction(runs: int) -> list[str]:
 def check_digest_stability(runs: int) -> list[str]:
     """The artifact digest must not change between runs."""
     digests = {
-        Artifact.from_file(FIXTURE_PATH, f"art-{i}").digest for i in range(runs)
+        TableArtifact.from_file(FIXTURE_PATH, f"art-{i}").digest for i in range(runs)
     }
     if len(digests) != 1:
         return [f"artifact digest is unstable: {sorted(digests)}"]

@@ -20,8 +20,8 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
 import _bootstrap  # noqa: E402
 
-from core.artifact import Artifact  # noqa: E402
-from core.evidence import LossKind  # noqa: E402
+from skills.luohai.contracts import TableArtifact  # noqa: E402
+from skills.luohai.contracts import TableLossKind  # noqa: E402
 from skills.luohai import (  # noqa: E402
     Ambiguous,
     Citation,
@@ -37,7 +37,7 @@ FIXTURE = _bootstrap.FIXTURE_PATH
 
 
 def build():
-    artifact = Artifact.from_file(FIXTURE, "art-fixture")
+    artifact = TableArtifact.from_file(FIXTURE, "art-fixture")
     skill = TabularEvidenceSkill(FixtureXlsxBackend())
     return artifact, skill.run(artifact, source_id="src-1")
 
@@ -155,8 +155,8 @@ class RangeResolutionTests(unittest.TestCase):
     def test_range_loss_aggregates_the_cells_inside_it(self) -> None:
         outcome = self.resolve(self.ragged, "A1:C3")
         assert isinstance(outcome, RangeCitation)
-        self.assertIn(LossKind.EMPTY, outcome.loss)
-        self.assertIn(LossKind.ABSENT, outcome.loss)
+        self.assertIn(TableLossKind.EMPTY, outcome.loss)
+        self.assertIn(TableLossKind.ABSENT, outcome.loss)
 
     # -- refusals ----------------------------------------------------------
 

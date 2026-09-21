@@ -48,8 +48,8 @@ import json
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Mapping, Sequence
 
-from core.evidence import EvidenceUnit, LossKind
-from core.skill_result import Capability, Support
+from .contracts import TableEvidenceUnit, TableLossKind
+from .contracts import TableCapability, TableSupport
 
 __all__ = [
     "CANDIDATE_KEYS",
@@ -94,12 +94,12 @@ CANDIDATE_KEYS: tuple[str, ...] = ("A", "B", "C")
 # --------------------------------------------------------------------------
 
 
-def unit_table_context(unit: EvidenceUnit) -> dict[str, Any] | None:
+def unit_table_context(unit: TableEvidenceUnit) -> dict[str, Any] | None:
     """The experimental table context attached to a unit, or ``None``.
 
-    This lives here rather than on ``EvidenceUnit`` on purpose. A generic
+    This lives here rather than on ``TableEvidenceUnit`` on purpose. A generic
     evidence record must not grow table-specific accessors: Core understands
-    ``EvidenceUnit``, ``SkillResult``, generic references and diagnostics, and
+    ``TableEvidenceUnit``, ``TableRunResult``, generic references and diagnostics, and
     nothing about tables. The context is a convention between this module and
     the Skill that writes it, read out of the unit's generic ``metadata``.
 
@@ -111,7 +111,7 @@ def unit_table_context(unit: EvidenceUnit) -> dict[str, Any] | None:
     return dict(context) if isinstance(context, Mapping) else None
 
 
-def unit_context_hints(unit: EvidenceUnit) -> dict[str, Any] | None:
+def unit_context_hints(unit: TableEvidenceUnit) -> dict[str, Any] | None:
     """The candidate context hints attached to a unit, or ``None``.
 
     ``{"A": ..., "B": ..., "C": ...}``. Read-only and unfrozen.
@@ -150,7 +150,7 @@ class Unresolved:
 
 
 def resolve_table_context(
-    units: Sequence[EvidenceUnit],
+    units: Sequence[TableEvidenceUnit],
     *,
     hint: str,
     candidate: str | None = None,
@@ -243,7 +243,7 @@ def resolve_table_context(
 
 
 def _resolved_table_candidate(
-    unit: EvidenceUnit, candidate: str, hint: str, score: str
+    unit: TableEvidenceUnit, candidate: str, hint: str, score: str
 ) -> TableCandidate:
     context = unit_table_context(unit) or {}
     values = context.get("context_values") or {}
@@ -1027,15 +1027,15 @@ def build_collision_matrix(
     }
 
 
-def make_capability() -> Capability:
+def make_capability() -> TableCapability:
     """Declare the context experiment's support honestly."""
-    return Capability(
+    return TableCapability(
         name="table_context_candidates",
-        support=Support.PARTIAL,
+        support=TableSupport.PARTIAL,
         detail=(
             "three candidate table contexts (A: sheet+range, B: +header "
             "values, C: +header context + content fingerprint) are produced and "
             "compared; none is adopted"
         ),
-        collapse_risks=(LossKind.COLLAPSE_RISK,),
+        collapse_risks=(TableLossKind.COLLAPSE_RISK,),
     )

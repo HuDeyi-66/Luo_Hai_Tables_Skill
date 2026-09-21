@@ -25,7 +25,7 @@ PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from core.source import SourceRegistry  # noqa: E402
+from skills.luohai.contracts import TableArtifact  # noqa: E402
 from skills.luohai import (  # noqa: E402
     Ambiguous,
     Citation,
@@ -40,13 +40,10 @@ FIXTURE = PROJECT_ROOT / "fixtures" / "generated" / "luohai_tabular_controlled.x
 
 
 def main() -> int:
-    registry = SourceRegistry()
-    registry.register_source("example-port-workbook", label="Synthetic example workbook")
-    artifact = registry.register_artifact(
-        "example-port-workbook",
-        FIXTURE,
-        artifact_id="example-port-workbook",
-    )
+    # The Skill takes its input directly: a workbook whose bytes it can
+    # re-verify. Source registration is a caller's concern, not the Skill's, so
+    # LuoHai needs no registry to be used on its own.
+    artifact = TableArtifact.from_file(FIXTURE, "example-port-workbook")
 
     skill = TabularEvidenceSkill(FixtureXlsxBackend())
     result = skill.run(artifact, source_id="example-port-workbook")

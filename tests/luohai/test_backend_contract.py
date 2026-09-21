@@ -26,9 +26,9 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
 import _bootstrap  # noqa: E402
 
-from core.artifact import Artifact  # noqa: E402
-from core.evidence import LossKind  # noqa: E402
-from core.skill_result import Support  # noqa: E402
+from skills.luohai.contracts import TableArtifact  # noqa: E402
+from skills.luohai.contracts import TableLossKind  # noqa: E402
+from skills.luohai.contracts import TableSupport  # noqa: E402
 from skills.luohai import (  # noqa: E402
     CalamineBackend,
     FakeTabularBackend,
@@ -44,8 +44,8 @@ FIXTURE_MEDIA_TYPE = (
 )
 
 
-def artifact() -> Artifact:
-    return Artifact.from_file(FIXTURE, "art-fixture")
+def artifact() -> TableArtifact:
+    return TableArtifact.from_file(FIXTURE, "art-fixture")
 
 
 class InjectionTests(unittest.TestCase):
@@ -116,9 +116,9 @@ class FakeBackendTests(unittest.TestCase):
             "Sheet1", (["a", "b"], [None, 2])
         )
         backend = FakeTabularBackend([sheet])
-        backend.DECLARED_COLLAPSE_RISKS = (LossKind.ABSENT,)
+        backend.DECLARED_COLLAPSE_RISKS = (TableLossKind.ABSENT,)
         result = TabularEvidenceSkill(backend).run(artifact(), source_id="src-1")
-        self.assertIn(LossKind.ABSENT, result.diagnostics.observed_loss_kinds)
+        self.assertIn(TableLossKind.ABSENT, result.diagnostics.observed_loss_kinds)
         self.assertEqual(result.unsurfaced_risks, ())
 
 
@@ -205,23 +205,23 @@ class FixtureBackendTests(unittest.TestCase):
 
     def test_it_declares_csv_unsupported(self) -> None:
         capabilities = {c.name: c for c in FixtureXlsxBackend().capabilities()}
-        self.assertEqual(capabilities["csv_read"].support, Support.UNSUPPORTED)
+        self.assertEqual(capabilities["csv_read"].support, TableSupport.UNSUPPORTED)
 
     def test_it_declares_unread_content_as_a_loss_risk(self) -> None:
         capabilities = {c.name: c for c in FixtureXlsxBackend().capabilities()}
         for name in ("cell_comments", "embedded_objects"):
-            self.assertEqual(capabilities[name].support, Support.UNSUPPORTED)
-            self.assertIn(LossKind.SILENT_LOSS_RISK, capabilities[name].collapse_risks)
+            self.assertEqual(capabilities[name].support, TableSupport.UNSUPPORTED)
+            self.assertIn(TableLossKind.SILENT_LOSS_RISK, capabilities[name].collapse_risks)
 
     def test_it_reports_formula_text_as_supported_without_evaluation(self) -> None:
         capabilities = {c.name: c for c in FixtureXlsxBackend().capabilities()}
-        self.assertEqual(capabilities["formula_text"].support, Support.SUPPORTED)
+        self.assertEqual(capabilities["formula_text"].support, TableSupport.SUPPORTED)
         self.assertEqual(
-            capabilities["formula_evaluation"].support, Support.UNSUPPORTED
+            capabilities["formula_evaluation"].support, TableSupport.UNSUPPORTED
         )
 
     def test_a_non_xlsx_artifact_is_warned_about_not_silently_accepted(self) -> None:
-        csv_artifact = Artifact.from_file(FIXTURE, "a", media_type="text/csv")
+        csv_artifact = TableArtifact.from_file(FIXTURE, "a", media_type="text/csv")
         result = TabularEvidenceSkill(FixtureXlsxBackend()).run(
             csv_artifact, source_id="src-1"
         )
@@ -242,7 +242,7 @@ class CalamineSpikeTests(unittest.TestCase):
 
     def test_the_spike_declares_its_collapse_risks(self) -> None:
         self.assertTrue(self.backend.DECLARED_COLLAPSE_RISKS)
-        self.assertIn(LossKind.COLLAPSE_RISK, self.backend.DECLARED_COLLAPSE_RISKS)
+        self.assertIn(TableLossKind.COLLAPSE_RISK, self.backend.DECLARED_COLLAPSE_RISKS)
 
     def test_the_spike_does_not_claim_lossy_distinctions(self) -> None:
         capabilities = {c.name: c for c in self.backend.capabilities()}
@@ -255,7 +255,7 @@ class CalamineSpikeTests(unittest.TestCase):
         ):
             self.assertNotEqual(
                 capabilities[name].support,
-                Support.SUPPORTED,
+                TableSupport.SUPPORTED,
                 f"the spike must not claim {name} is supported",
             )
 
@@ -304,7 +304,7 @@ class BackendContractShapeTests(unittest.TestCase):
         for backend in (FixtureXlsxBackend(), CalamineBackend()):
             for capability in backend.capabilities():
                 with self.subTest(backend=backend.backend_id, name=capability.name):
-                    self.assertIn(capability.support, Support.ALL)
+                    self.assertIn(capability.support, TableSupport.ALL)
 
     def test_load_is_read_only_with_respect_to_the_artifact(self) -> None:
         before = FIXTURE.read_bytes()

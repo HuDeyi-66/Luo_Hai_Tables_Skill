@@ -1,17 +1,13 @@
 """LuoHai test bootstrap.
 
-Two jobs:
+Makes this repository's root importable as ``skills`` and ``fixtures`` when the
+suite is run from anywhere, without requiring an install.
 
-1. make this repository's root importable as ``skills`` / ``fixtures``;
-2. locate **SeaFlow Core**, which is not vendored here.
-
-Core composition is explicit by design. This repository has exactly one
-supported way to obtain Core at test time: a directory containing ``core/``,
-supplied either as ``--core-root <dir>`` (handled by ``tests/run_all.py``) or as
-the ``SEAFLOW_CORE_ROOT`` environment variable. There is no sibling-directory
-guessing and no machine-specific path anywhere in the suite: a hidden fallback
-would make the result depend on checkout layout, which is precisely what
-cross-repository verification must not do.
+There is nothing else to locate. LuoHai is an independent component: it does not
+need a runtime, a service, a sibling checkout, or a path supplied from outside
+this repository. Earlier revisions of this file resolved a shared Core root from
+an environment variable; that requirement is gone, because LuoHai now carries its
+own contract in ``skills/luohai/contracts.py``.
 
 Optional locked backend
 -----------------------
@@ -34,26 +30,11 @@ from typing import Any
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-CORE_ROOT_ENV = "SEAFLOW_CORE_ROOT"
-_core_root = os.environ.get(CORE_ROOT_ENV)
-if not _core_root:
-    raise RuntimeError(
-        "SeaFlow Core was not supplied. Pass --core-root <dir> to "
-        "tests/run_all.py, or set "
-        f"{CORE_ROOT_ENV} to a directory containing core/. Core is not "
-        "vendored into this repository: it has one authoritative "
-        "implementation, in the SeaFlow repository."
-    )
-CORE_ROOT = Path(_core_root).resolve()
-if not (CORE_ROOT / "core" / "__init__.py").is_file():
-    raise RuntimeError(
-        f"{CORE_ROOT_ENV}={CORE_ROOT} does not contain core/__init__.py, so it "
-        "is not a SeaFlow checkout root or a staged Core root."
-    )
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 #: LuoHai-owned fixture locations. These are the paths the LuoHai suites and the
-#: fixture harness assert against, so they are part of the Skill's public test
-#: contract.
+#: fixture harness assert against, so they are part of the Skill's test contract.
 FIXTURE_DIR = PROJECT_ROOT / "fixtures" / "generated"
 TRUTH_DIR = PROJECT_ROOT / "fixtures" / "truth"
 FIXTURE_PATH = FIXTURE_DIR / "luohai_tabular_controlled.xlsx"
@@ -75,14 +56,6 @@ LOCKED_CALAMINE_SHA = "0af05f4f6030351e3b8a999ea0810c8618368776"
 #: Environment switch that treats the optional backend as unavailable, proving
 #: the deterministic standard-library path.
 DISABLE_OPTIONAL_BACKEND_ENV = "SEAFLOW_DISABLE_OPTIONAL_CALAMINE"
-
-#: This repository's root must win over the Core root for ``skills`` and
-#: ``fixtures``; Core is appended underneath so ``core`` resolves.
-if str(CORE_ROOT) not in sys.path:
-    sys.path.append(str(CORE_ROOT))
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
-
 
 #: Scratch directory for tests that must write bytes to disk. Created once and
 #: reused; a freshly created directory per test is avoided on purpose because
@@ -184,3 +157,25 @@ def ensure_calamine_on_path() -> dict[str, Any]:
         sys.path.insert(0, extracted)
     report["available"] = True
     return report
+
+
+def repository_has_no_private_runtime_dependency() -> bool:
+    """True when no module in this repository imports ``core`` or ``app``.
+
+    The source is parsed rather than imported, so the check cannot pass merely
+    because an import happened to resolve against something outside the clone.
+    """
+    import ast
+
+    for path in sorted((PROJECT_ROOT / "skills").rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                if any(a.name.split(".")[0] in ("core", "app") for a in node.names):
+                    return False
+            elif isinstance(node, ast.ImportFrom):
+                if node.level:
+                    continue
+                if (node.module or "").split(".")[0] in ("core", "app"):
+                    return False
+    return True

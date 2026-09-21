@@ -22,8 +22,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import _bootstrap  # noqa: E402
 
-from core.artifact import Artifact  # noqa: E402
-from core.evidence import LossKind  # noqa: E402
+from skills.luohai.contracts import TableArtifact  # noqa: E402
+from skills.luohai.contracts import TableLossKind  # noqa: E402
 from skills.luohai import ooxml  # noqa: E402
 from skills.luohai.backends import FixtureXlsxBackend  # noqa: E402
 from skills.luohai.citation import (  # noqa: E402
@@ -41,7 +41,7 @@ SPLIT_REGION = "table:CitationTable:A1:C6"
 
 
 def build_result(options: dict | None = None):
-    artifact = Artifact.from_file(_bootstrap.FIXTURE_PATH, "art-fixture")
+    artifact = TableArtifact.from_file(_bootstrap.FIXTURE_PATH, "art-fixture")
     skill = TabularEvidenceSkill(FixtureXlsxBackend())
     return artifact, skill.run(artifact, source_id="src-1", options=options)
 
@@ -347,7 +347,7 @@ class BoundaryCaseTests(unittest.TestCase):
         self.assertIsInstance(outcome, Citation)
         assert isinstance(outcome, Citation)
         self.assertEqual(outcome.value_kind, "empty")
-        self.assertIn(LossKind.EMPTY, outcome.loss)
+        self.assertIn(TableLossKind.EMPTY, outcome.loss)
         self.assertEqual(read_fixture_cell("RaggedTable", "B2"), "EMPTY_PRESENT_CELL")
 
     def test_a_coordinate_with_no_cell_element_resolves_as_absent(self) -> None:
@@ -357,7 +357,7 @@ class BoundaryCaseTests(unittest.TestCase):
         self.assertIsInstance(outcome, Citation)
         assert isinstance(outcome, Citation)
         self.assertEqual(outcome.value_kind, "absent")
-        self.assertIn(LossKind.ABSENT, outcome.loss)
+        self.assertIn(TableLossKind.ABSENT, outcome.loss)
         self.assertEqual(read_fixture_cell("RaggedTable", "C2"), "ABSENT_NO_CELL_ELEMENT")
 
     def test_empty_and_absent_are_not_the_same_outcome(self) -> None:
@@ -399,20 +399,20 @@ class BoundaryCaseTests(unittest.TestCase):
         self.assertEqual(outcome.problem, CitationProblem.NO_TABULAR_PAYLOAD)
 
     def test_a_failed_unit_is_blocked_from_positional_resolution(self) -> None:
-        from core.evidence import EvidenceUnit, ProducerRef, CitationAddress, UnitClass
+        from skills.luohai.contracts import TableEvidenceUnit, TableProducer, TableCitationAddress, TableUnitClass
 
-        broken = EvidenceUnit(
+        broken = TableEvidenceUnit(
             unit_id="broken",
-            unit_class=UnitClass.CONTENT,
+            unit_class=TableUnitClass.CONTENT,
             source_id="src-1",
             artifact_id="art-fixture",
-            producer=ProducerRef(skill_id="x", backend_id="y"),
-            address=CitationAddress(
+            producer=TableProducer(skill_id="x", backend_id="y"),
+            address=TableCitationAddress(
                 kind="content_location",
                 container_id="table:S:A1:A1",
                 context_path=("sheet:S",),
             ),
-            loss=(LossKind.FAILED,),
+            loss=(TableLossKind.FAILED,),
             payload={},
         )
         outcome = resolve_citation(broken, CitationSelector(value=1))

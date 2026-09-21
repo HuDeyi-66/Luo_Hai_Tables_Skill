@@ -6,13 +6,13 @@ Pipeline position
 -----------------
 ::
 
-    registered Artifact
+    registered TableArtifact
             |
         Skill (this module)
             |
-        SkillResult
+        TableRunResult
             |
-        EvidenceUnit[]
+        TableEvidenceUnit[]
 
 Design commitments taken from the V2.1 architecture review
 ---------------------------------------------------------
@@ -20,16 +20,16 @@ Design commitments taken from the V2.1 architecture review
    ``backends`` option. There is no scanning, registry or dynamic loading.
 2. **Known loss is declared, not discovered.** A backend that is known to
    conflate two states declares that up front, and a run that never surfaces
-   the declared signal is downgraded (``SkillResult.unsurfaced_risks``). This is
+   the declared signal is downgraded (``TableRunResult.unsurfaced_risks``). This is
    the mechanism that stops a silent-loss fixture from being reported as a
    clean success.
 3. **Fallback is recorded, never silent.** If the preferred backend is
    unavailable or fails, the fallback appears in ``diagnostics.fallbacks``
    *and* on every unit's ``producer.fallback_used``.
 4. **Unsupported is a result, not an exception.** A missing dependency
-   produces ``SkillResult`` errors and a capability statement, not a crash.
+   produces ``TableRunResult`` errors and a capability statement, not a crash.
 5. **One unit per located thing.** Each table region becomes one
-   ``EvidenceUnit`` with a generic Core address and Skill-owned worksheet/range
+   ``TableEvidenceUnit`` with a generic Core address and Skill-owned worksheet/range
    context. The worksheet itself becomes a container unit only when it has no
    detectable region, so empty sheets are still represented.
 """
@@ -41,20 +41,20 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Iterable, Mapping, Sequence
 
-from core.artifact import Artifact
-from core.evidence import (
-    CitationAddress,
-    EvidenceUnit,
-    LossKind,
-    ProducerRef,
-    UnitClass,
+from .contracts import TableArtifact
+from .contracts import (
+    TableCitationAddress,
+    TableEvidenceUnit,
+    TableLossKind,
+    TableProducer,
+    TableUnitClass,
 )
-from core.skill_result import (
-    Capability,
-    RunDiagnostics,
-    Skill,
-    SkillResult,
-    Support,
+from .contracts import (
+    TableCapability,
+    TableEvidenceSkill,
+    TableRunDiagnostics,
+    TableRunResult,
+    TableSupport,
 )
 
 from . import ooxml
@@ -78,35 +78,35 @@ DEFAULT_OPTIONS: Mapping[str, Any] = {
 }
 
 #: Text/capability inventory of the Skill itself, independent of backend.
-_SKILL_CAPABILITIES: tuple[Capability, ...] = (
-    Capability(
+_SKILL_CAPABILITIES: tuple[TableCapability, ...] = (
+    TableCapability(
         name="tabular_evidence_units",
-        support=Support.SUPPORTED,
-        detail="one EvidenceUnit per detected table region, with a generic Core "
+        support=TableSupport.SUPPORTED,
+        detail="one TableEvidenceUnit per detected table region, with a generic Core "
                "address and Skill-owned worksheet/range context",
     ),
-    Capability(
+    TableCapability(
         name="citation_reconstruction",
-        support=Support.SUPPORTED,
+        support=TableSupport.SUPPORTED,
         detail="payload carries per-cell addresses, row labels and column "
                "headers sufficient to rebuild a unique cell or range citation",
     ),
-    Capability(
+    TableCapability(
         name="range_location",
-        support=Support.SUPPORTED,
+        support=TableSupport.SUPPORTED,
         detail="a rectangular range resolves to a RangeCitation covering every "
                "coordinate in it, including empty, absent and merged cells; a "
                "range that cannot be described completely is unresolved",
     ),
-    Capability(
+    TableCapability(
         name="confidence_scoring",
-        support=Support.UNSUPPORTED,
+        support=TableSupport.UNSUPPORTED,
         detail="V2.1 records uncertainty/loss states but does not score or rank "
                "evidence",
     ),
-    Capability(
+    TableCapability(
         name="declared_table_observation",
-        support=Support.PARTIAL,
+        support=TableSupport.PARTIAL,
         detail="OOXML table parts (xl/tables) are read and compared with the "
                "inferred table context, reporting agreement / disagreement / "
                "unavailable. Observation only: declared metadata never "
@@ -114,9 +114,9 @@ _SKILL_CAPABILITIES: tuple[Capability, ...] = (
                "persistent identity, and it is not yet carried on evidence "
                "(skills/TODO.md)",
     ),
-    Capability(
+    TableCapability(
         name="csv_read",
-        support=Support.UNSUPPORTED,
+        support=TableSupport.UNSUPPORTED,
         detail="first slice is XLSX only, by architecture decision",
     ),
 )
@@ -188,7 +188,7 @@ def _overlapping_merges(sheet: ObservedSheet, region: TableRegion) -> list[str]:
 
 
 def _build_table_context(
-    artifact: Artifact,
+    artifact: TableArtifact,
     sheet: ObservedSheet,
     region: TableRegion,
     payload_block: Mapping[str, Any],
@@ -262,7 +262,7 @@ class _BackendChoice:
     fallback_reason: str | None = None
 
 
-class TabularEvidenceSkill(Skill):
+class TabularEvidenceSkill(TableEvidenceSkill):
     """Extract provisional EvidenceUnits from an XLSX artifact.
 
     Parameters
@@ -291,7 +291,7 @@ class TabularEvidenceSkill(Skill):
 
     # -- capability ------------------------------------------------------
 
-    def capabilities(self) -> tuple[Capability, ...]:
+    def capabilities(self) -> tuple[TableCapability, ...]:
         """Skill capabilities plus the capabilities of every candidate backend.
 
         Backend names are prefixed so a caller can tell which statement came
@@ -308,7 +308,7 @@ class TabularEvidenceSkill(Skill):
                     continue
                 seen.add(key)
                 caps.append(
-                    Capability(
+                    TableCapability(
                         name=f"{prefix}:{cap.name}",
                         support=cap.support,
                         detail=cap.detail,
@@ -321,18 +321,18 @@ class TabularEvidenceSkill(Skill):
 
     def run(
         self,
-        artifact: Artifact,
+        artifact: TableArtifact,
         *,
         source_id: str | None = None,
         options: Mapping[str, Any] | None = None,
         source: Any = None,
-    ) -> SkillResult:
+    ) -> TableRunResult:
         resolved_source_id = source_id or getattr(source, "source_id", None)
         run_id = f"run-{uuid.uuid4().hex[:12]}"
         started_at = _utc_now()
 
-        diagnostics = RunDiagnostics(options_echo=dict(options or {}))
-        producer = ProducerRef(
+        diagnostics = TableRunDiagnostics(options_echo=dict(options or {}))
+        producer = TableProducer(
             skill_id=self.skill_id,
             skill_version=self.skill_version,
             run_id=run_id,
@@ -346,7 +346,7 @@ class TabularEvidenceSkill(Skill):
                 "traced to a registered source",
                 fatal=True,
             )
-            return SkillResult(
+            return TableRunResult(
                 artifact=artifact,
                 skill_id=self.skill_id,
                 producer=producer,
@@ -460,7 +460,7 @@ class TabularEvidenceSkill(Skill):
         return (FixtureXlsxBackend(),)
 
     def _select_backend(
-        self, options: Mapping[str, Any], diagnostics: RunDiagnostics
+        self, options: Mapping[str, Any], diagnostics: TableRunDiagnostics
     ) -> _BackendChoice:
         candidates = self._candidate_backends(options)
         diagnostics.considered_backends = [b.backend_id for b in candidates]
@@ -494,7 +494,7 @@ class TabularEvidenceSkill(Skill):
         backend: TabularBackend,
         path: str,
         options: Mapping[str, Any],
-        diagnostics: RunDiagnostics,
+        diagnostics: TableRunDiagnostics,
     ) -> ObservedWorkbook:
         """Call ``backend.load`` and convert an unexpected exception into evidence.
 
@@ -519,7 +519,7 @@ class TabularEvidenceSkill(Skill):
                 fatal=True,
             )
             return ObservedWorkbook(
-                loss=(LossKind.FAILED,),
+                loss=(TableLossKind.FAILED,),
                 errors=(f"backend_raised: {problem}",),
                 fatal=True,
                 backend_id=backend.backend_id,
@@ -532,15 +532,15 @@ class TabularEvidenceSkill(Skill):
     def _build_units(
         self,
         *,
-        artifact: Artifact,
+        artifact: TableArtifact,
         source_id: str,
         observation: ObservedWorkbook,
-        producer: ProducerRef,
+        producer: TableProducer,
         merged: Mapping[str, Any],
-        diagnostics: RunDiagnostics,
+        diagnostics: TableRunDiagnostics,
         fallback: _BackendChoice,
-    ) -> tuple[EvidenceUnit, ...]:
-        units: list[EvidenceUnit] = []
+    ) -> tuple[TableEvidenceUnit, ...]:
+        units: list[TableEvidenceUnit] = []
         wanted = merged.get("sheet_names")
         gap_tolerance = int(merged.get("gap_tolerance", 0))
         emit_worksheet_units = bool(merged.get("emit_worksheet_units", True))
@@ -589,9 +589,9 @@ class TabularEvidenceSkill(Skill):
 
         return tuple(units)
 
-    def _producer_for(self, producer: ProducerRef, fallback: _BackendChoice) -> ProducerRef:
+    def _producer_for(self, producer: TableProducer, fallback: _BackendChoice) -> TableProducer:
         backend = fallback.backend
-        return ProducerRef(
+        return TableProducer(
             skill_id=producer.skill_id,
             skill_version=producer.skill_version,
             backend_id=backend.backend_id,
@@ -605,12 +605,12 @@ class TabularEvidenceSkill(Skill):
     def _worksheet_unit(
         self,
         *,
-        artifact: Artifact,
+        artifact: TableArtifact,
         source_id: str,
         sheet: ObservedSheet,
-        producer: ProducerRef,
+        producer: TableProducer,
         fallback: _BackendChoice,
-    ) -> EvidenceUnit:
+    ) -> TableEvidenceUnit:
         """A sheet with no detectable table region.
 
         This is where ``EMPTY`` and ``ABSENT`` for a whole sheet are made
@@ -624,22 +624,22 @@ class TabularEvidenceSkill(Skill):
             cell_loss.extend(cell.loss)
         loss = list(sheet.loss)
         if not sheet.cells:
-            loss.append(LossKind.EMPTY)
+            loss.append(TableLossKind.EMPTY)
         elif not any(is_populated(c) for c in sheet.cells.values()):
-            loss.append(LossKind.EMPTY)
+            loss.append(TableLossKind.EMPTY)
         loss.extend(cell_loss)
 
         ref = ooxml.format_cell_reference(1, 1)
-        address = CitationAddress(
+        address = TableCitationAddress(
             kind="container_location",
             value=ref,
             container_id=f"worksheet:{sheet.name}",
             container_label=sheet.name,
             context_path=(f"sheet:{sheet.name}", f"cell:{ref}"),
         )
-        return EvidenceUnit(
+        return TableEvidenceUnit(
             unit_id=f"{artifact.artifact_id}:{sheet.name}:worksheet",
-            unit_class=UnitClass.CONTAINER,
+            unit_class=TableUnitClass.CONTAINER,
             source_id=source_id,
             artifact_id=artifact.artifact_id,
             producer=self._producer_for(producer, fallback),
@@ -665,13 +665,13 @@ class TabularEvidenceSkill(Skill):
     def _region_unit(
         self,
         *,
-        artifact: Artifact,
+        artifact: TableArtifact,
         source_id: str,
         sheet: ObservedSheet,
         region: TableRegion,
-        producer: ProducerRef,
+        producer: TableProducer,
         fallback: _BackendChoice,
-    ) -> EvidenceUnit:
+    ) -> TableEvidenceUnit:
         header_row = region.header_row
         column_headers: dict[int, Any] = {}
         for col in range(region.min_col, region.max_col + 1):
@@ -696,7 +696,7 @@ class TabularEvidenceSkill(Skill):
                     # value comes from the merge anchor and calling it absent
                     # would be wrong.
                     anchor = merge_anchors.get(ref)
-                    loss = [LossKind.ABSENT]
+                    loss = [TableLossKind.ABSENT]
                     notes = ["no cell element at this inside-bounds address"]
                     value_kind = "absent"
                     value = None
@@ -796,7 +796,7 @@ class TabularEvidenceSkill(Skill):
             "column_count": region.width,
         }
 
-        address = CitationAddress(
+        address = TableCitationAddress(
             kind="content_location",
             value=ooxml.format_cell_reference(region.min_row, region.min_col),
             container_id=region.region_id,
@@ -834,13 +834,13 @@ class TabularEvidenceSkill(Skill):
                 "last": last_letter,
             }
         if payload_block["hidden_rows"] or payload_block["hidden_columns"]:
-            unit_loss.append(LossKind.SILENT_LOSS_RISK)
+            unit_loss.append(TableLossKind.SILENT_LOSS_RISK)
 
         table_context = _build_table_context(artifact, sheet, region, payload_block)
 
-        return EvidenceUnit(
+        return TableEvidenceUnit(
             unit_id=f"{artifact.artifact_id}:{sheet.name}:{region.bounds}",
-            unit_class=UnitClass.CONTENT,
+            unit_class=TableUnitClass.CONTENT,
             source_id=source_id,
             artifact_id=artifact.artifact_id,
             producer=self._producer_for(producer, fallback),
@@ -875,8 +875,8 @@ class TabularEvidenceSkill(Skill):
         self,
         observation: ObservedWorkbook,
         choice: _BackendChoice,
-        diagnostics: RunDiagnostics,
-        units: Sequence[EvidenceUnit],
+        diagnostics: TableRunDiagnostics,
+        units: Sequence[TableEvidenceUnit],
     ) -> None:
         backend = choice.backend
         diagnostics.backend_id = backend.backend_id
@@ -918,7 +918,7 @@ class TabularEvidenceSkill(Skill):
             if cap_name not in diagnostics.unsupported_capabilities:
                 diagnostics.unsupported_capabilities.append(cap_name)
         for cap in backend.capabilities():
-            if cap.support in (Support.UNSUPPORTED, Support.PARTIAL):
+            if cap.support in (TableSupport.UNSUPPORTED, TableSupport.PARTIAL):
                 name = f"{backend.backend_id}:{cap.name}"
                 if name not in diagnostics.unsupported_capabilities:
                     diagnostics.unsupported_capabilities.append(name)
@@ -941,14 +941,14 @@ class TabularEvidenceSkill(Skill):
 
     def _finish(
         self,
-        artifact: Artifact,
-        producer: ProducerRef,
-        diagnostics: RunDiagnostics,
+        artifact: TableArtifact,
+        producer: TableProducer,
+        diagnostics: TableRunDiagnostics,
         run_id: str,
         started_at: str,
-        units: Sequence[EvidenceUnit],
-    ) -> SkillResult:
-        return SkillResult(
+        units: Sequence[TableEvidenceUnit],
+    ) -> TableRunResult:
+        return TableRunResult(
             artifact=artifact,
             skill_id=self.skill_id,
             producer=producer,

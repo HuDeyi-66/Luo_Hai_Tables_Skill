@@ -32,7 +32,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from core.artifact import Artifact  # noqa: E402
+from skills.luohai.contracts import TableArtifact  # noqa: E402
 from skills.luohai import ooxml, table_context, table_observe  # noqa: E402
 from skills.luohai.backends import FixtureXlsxBackend  # noqa: E402
 from skills.luohai.citation import (  # noqa: E402
@@ -63,7 +63,7 @@ PROBES: tuple[tuple[str, dict[str, Any]], ...] = (
 
 
 def load_result(gap_tolerance: int):
-    artifact = Artifact.from_file(FIXTURE_PATH, "art-context")
+    artifact = TableArtifact.from_file(FIXTURE_PATH, "art-context")
     skill = TabularEvidenceSkill(FixtureXlsxBackend())
     return artifact, skill.run(
         artifact, source_id="src-context", options={"gap_tolerance": gap_tolerance}

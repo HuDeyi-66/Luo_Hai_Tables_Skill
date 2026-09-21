@@ -1,17 +1,16 @@
-"""LuoHai Skill test runner.
+"""LuoHai test runner.
 
-    python tests/run_all.py --core-root <seaflow-root> [--quiet]
+    python tests/run_all.py [--quiet]
 
-SeaFlow Core is required and must be supplied explicitly, either as
-``--core-root`` or through the ``SEAFLOW_CORE_ROOT`` environment variable. Core
-is not vendored into this repository. There is no sibling-directory fallback.
+No runtime, service or sibling checkout is required. LuoHai is standalone: the
+suite runs against this repository alone.
 
 The optional locked ``python-calamine`` comparison binding is not distributed
 with this repository::
 
-    python tests/run_all.py --core-root <root>                  # optional tests skip
-    python tests/run_all.py --core-root <root> --no-calamine    # same, stated explicitly
-    python tests/run_all.py --core-root <root> --with-calamine  # use the wheel if present
+    python tests/run_all.py                  # optional tests skip
+    python tests/run_all.py --no-calamine    # same, stated explicitly
+    python tests/run_all.py --with-calamine  # use the wheel if present
 """
 
 from __future__ import annotations
@@ -29,11 +28,6 @@ sys.path.insert(0, str(TESTS_DIR))
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run the LuoHai Skill test suite")
-    parser.add_argument(
-        "--core-root",
-        default=None,
-        help="directory containing core/ (a SeaFlow checkout root or a staged Core root)",
-    )
     group = parser.add_mutually_exclusive_group()
     group.add_argument(
         "--with-calamine",
@@ -52,18 +46,14 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    # The bootstrap validates Core at import time, so the explicit root has to
-    # be in the environment before it is imported.
-    if args.core_root:
-        os.environ["SEAFLOW_CORE_ROOT"] = str(Path(args.core_root).resolve())
-
-    import _bootstrap  # noqa: E402  (path bootstrap; validates Core)
+    import _bootstrap  # noqa: E402  (path bootstrap)
 
     if args.no_calamine:
         os.environ[_bootstrap.DISABLE_OPTIONAL_BACKEND_ENV] = "1"
         print("[runner] optional locked binding treated as UNAVAILABLE")
 
-    print(f"[runner] SeaFlow Core root: {_bootstrap.CORE_ROOT}")
+    print("[runner] standalone: no runtime or external checkout required")
+    print(f"[runner] repository root: {_bootstrap.PROJECT_ROOT}")
 
     report = _bootstrap.ensure_calamine_on_path()
     if args.with_calamine and not report["available"]:

@@ -36,8 +36,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
-from core.evidence import LossKind
-from core.skill_result import Capability, Support
+from .contracts import TableLossKind
+from .contracts import TableCapability, TableSupport
 
 from . import ooxml
 
@@ -346,7 +346,7 @@ def compare_declared_and_inferred(
 
 
 def regions_from_result(result: Any) -> dict[str, list[dict[str, Any]]]:
-    """Extract the inferred-region descriptions from a ``SkillResult``.
+    """Extract the inferred-region descriptions from a ``TableRunResult``.
 
     Only the fields the comparison needs, taken from the Skill's own payload.
     The Skill does not need to know this observer exists.
@@ -374,15 +374,15 @@ def regions_from_result(result: Any) -> dict[str, list[dict[str, Any]]]:
     return by_sheet
 
 
-def make_capability() -> Capability:
+def make_capability() -> TableCapability:
     """Declare the observation's support honestly."""
-    return Capability(
+    return TableCapability(
         name="declared_table_observation",
-        support=Support.PARTIAL,
+        support=TableSupport.PARTIAL,
         detail=(
             "native xl/tables metadata is read and compared with the inferred "
             "table context, reporting agreement / disagreement / unavailable; "
             "it is observation only and never overrides inferred boundaries"
         ),
-        collapse_risks=(LossKind.SILENT_LOSS_RISK,),
+        collapse_risks=(TableLossKind.SILENT_LOSS_RISK,),
     )

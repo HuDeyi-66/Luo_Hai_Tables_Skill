@@ -9,8 +9,8 @@ Four questions, in the order the task asks them:
    collapse?
 3. **Ambiguity handling** -- does the resolver refuse instead of returning a
    first match?
-4. **EvidenceUnit integration** -- is the context attached without enlarging
-   ``EvidenceUnit``?
+4. **TableEvidenceUnit integration** -- is the context attached without enlarging
+   ``TableEvidenceUnit``?
 
 Plus a reproducibility check on the new fixture.
 """
@@ -26,8 +26,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import _bootstrap  # noqa: E402
 
-from core.artifact import Artifact  # noqa: E402
-from core.evidence import EvidenceUnit, LossKind  # noqa: E402
+from skills.luohai.contracts import TableArtifact  # noqa: E402
+from skills.luohai.contracts import TableEvidenceUnit, TableLossKind  # noqa: E402
 from skills.luohai import table_context  # noqa: E402
 from skills.luohai.backends import FixtureXlsxBackend  # noqa: E402
 from skills.luohai.citation import (  # noqa: E402
@@ -46,7 +46,7 @@ TRUTH_PATH = builder.TRUTH_DIR / builder.TRUTH_NAME
 
 
 def build_result(options: dict | None = None):
-    artifact = Artifact.from_file(FIXTURE_PATH, "art-context")
+    artifact = TableArtifact.from_file(FIXTURE_PATH, "art-context")
     skill = TabularEvidenceSkill(FixtureXlsxBackend())
     return artifact, skill.run(
         artifact, source_id="src-context", options=options or {}
@@ -162,7 +162,7 @@ class BoundaryDetectionTests(unittest.TestCase):
         unit = self.regions[merged_id]
         block = unit.payload["tabular"]
         self.assertEqual(block["ragged_rows"], [4, 5])
-        self.assertIn(LossKind.ABSENT, unit.loss)
+        self.assertIn(TableLossKind.ABSENT, unit.loss)
 
     def test_merged_cells_are_read_and_reported(self) -> None:
         unit = self.regions[region_id("MergedCells", "A1:C4")]
@@ -247,7 +247,7 @@ class BoundaryDetectionTests(unittest.TestCase):
         cells = {c["ref"]: c for c in block["cells"]}
         self.assertTrue(cells["C1"]["hidden"], "hidden column C must be marked")
         self.assertFalse(cells["A1"]["hidden"])
-        self.assertIn(LossKind.SILENT_LOSS_RISK, unit.loss)
+        self.assertIn(TableLossKind.SILENT_LOSS_RISK, unit.loss)
 
     def test_hidden_row_is_reported_on_the_region_that_contains_it(self) -> None:
         unit = self.regions[region_id("HiddenAxes", "A5:C6")]
@@ -263,7 +263,7 @@ class BoundaryDetectionTests(unittest.TestCase):
         ]
         self.assertEqual(len(merged), 1)
         self.assertEqual(merged[0].payload["tabular"]["hidden_rows"], [4])
-        self.assertIn(LossKind.SILENT_LOSS_RISK, merged[0].loss)
+        self.assertIn(TableLossKind.SILENT_LOSS_RISK, merged[0].loss)
 
     def test_duplicate_headers_are_reported(self) -> None:
         """DuplicateHeaders#2 has 2024 before 2023; the values are reordered.
@@ -831,7 +831,7 @@ class AmbiguityHandlingTests(unittest.TestCase):
 
 
 class EvidenceUnitIntegrationTests(unittest.TestCase):
-    """Experiment 4: attach context without enlarging EvidenceUnit."""
+    """Experiment 4: attach context without enlarging TableEvidenceUnit."""
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -839,12 +839,12 @@ class EvidenceUnitIntegrationTests(unittest.TestCase):
         cls.regions = region_map(cls.result)
 
     def test_evidence_unit_gained_no_new_dataclass_field(self) -> None:
-        fields = set(EvidenceUnit.__dataclass_fields__)  # type: ignore[attr-defined]
+        fields = set(TableEvidenceUnit.__dataclass_fields__)  # type: ignore[attr-defined]
         for forbidden in ("table_context", "identity", "table_id", "context_hint"):
             self.assertNotIn(
                 forbidden,
                 fields,
-                "the context spike must not enlarge EvidenceUnit",
+                "the context spike must not enlarge TableEvidenceUnit",
             )
 
     def test_core_evidence_has_no_table_specific_accessor(self) -> None:
@@ -856,8 +856,8 @@ class EvidenceUnitIntegrationTests(unittest.TestCase):
         """
         for attribute in ("table_context", "table_context_hint", "table_id"):
             self.assertFalse(
-                hasattr(EvidenceUnit, attribute),
-                f"EvidenceUnit must not expose {attribute!r}: table context is a "
+                hasattr(TableEvidenceUnit, attribute),
+                f"TableEvidenceUnit must not expose {attribute!r}: table context is a "
                 f"Skill-side convention, not a Core concept",
             )
 
@@ -886,7 +886,7 @@ class EvidenceUnitIntegrationTests(unittest.TestCase):
 
     def test_table_context_travels_through_serialisation(self) -> None:
         unit = self.regions[region_id("SingleTable", "A1:C3")]
-        restored = EvidenceUnit.from_dict(json.loads(json.dumps(unit.as_dict())))
+        restored = TableEvidenceUnit.from_dict(json.loads(json.dumps(unit.as_dict())))
         self.assertEqual(
             table_context.unit_table_context(restored),
             table_context.unit_table_context(unit),
@@ -897,15 +897,15 @@ class EvidenceUnitIntegrationTests(unittest.TestCase):
         )
 
     def test_a_unit_without_context_returns_none_instead_of_raising(self) -> None:
-        from core.evidence import CitationAddress, ProducerRef, UnitClass
+        from skills.luohai.contracts import TableCitationAddress, TableProducer, TableUnitClass
 
-        bare = EvidenceUnit(
+        bare = TableEvidenceUnit(
             unit_id="bare",
-            unit_class=UnitClass.CONTAINER,
+            unit_class=TableUnitClass.CONTAINER,
             source_id="s",
             artifact_id="a",
-            producer=ProducerRef(skill_id="x"),
-            address=CitationAddress(kind="sheet_cell"),
+            producer=TableProducer(skill_id="x"),
+            address=TableCitationAddress(kind="sheet_cell"),
         )
         self.assertIsNone(table_context.unit_table_context(bare))
         self.assertIsNone(table_context.unit_context_hints(bare))

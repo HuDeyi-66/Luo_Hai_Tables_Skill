@@ -29,7 +29,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import _bootstrap  # noqa: E402
 
-from core.artifact import Artifact  # noqa: E402
+from skills.luohai.contracts import TableArtifact  # noqa: E402
 from skills.luohai import ooxml, table_observe  # noqa: E402
 from skills.luohai.backends import FixtureXlsxBackend  # noqa: E402
 from skills.luohai import TabularEvidenceSkill  # noqa: E402
@@ -45,7 +45,7 @@ def package() -> ooxml.RawPackage:
 
 
 def build_result():
-    artifact = Artifact.from_file(FIXTURE_PATH, "art-context")
+    artifact = TableArtifact.from_file(FIXTURE_PATH, "art-context")
     skill = TabularEvidenceSkill(FixtureXlsxBackend())
     return artifact, skill.run(artifact, source_id="src-context")
 

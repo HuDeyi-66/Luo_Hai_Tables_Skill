@@ -28,7 +28,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from core.artifact import Artifact  # noqa: E402
+from skills.luohai.contracts import TableArtifact  # noqa: E402
 from skills.luohai import ooxml, table_context, table_observe  # noqa: E402
 from skills.luohai.backends import FixtureXlsxBackend  # noqa: E402
 from skills.luohai import TabularEvidenceSkill  # noqa: E402
@@ -43,7 +43,7 @@ def _sha256(payload: bytes) -> str:
 
 
 def contexts_for(gap_tolerance: int = 0):
-    artifact = Artifact.from_file(FIXTURE_PATH, "art-context")
+    artifact = TableArtifact.from_file(FIXTURE_PATH, "art-context")
     result = TabularEvidenceSkill(FixtureXlsxBackend()).run(
         artifact, source_id="src-context", options={"gap_tolerance": gap_tolerance}
     )
