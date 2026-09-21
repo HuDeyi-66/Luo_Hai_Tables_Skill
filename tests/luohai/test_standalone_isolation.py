@@ -30,10 +30,34 @@ import _bootstrap  # noqa: E402
 PROJECT_ROOT = _bootstrap.PROJECT_ROOT
 
 
+def _no_private_runtime_dependency(root: Path) -> bool:
+    """True when no module under ``skills/`` imports ``core`` or ``app``.
+
+    Defined here rather than in the shared bootstrap so the check still works
+    when this suite runs inside a composite checkout whose ``tests/_bootstrap.py``
+    belongs to another repository. The source is parsed rather than imported, so
+    it cannot pass merely because an import happened to resolve.
+    """
+    import ast
+
+    for path in sorted((root / "skills").rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                if any(a.name.split(".")[0] in ("core", "app") for a in node.names):
+                    return False
+            elif isinstance(node, ast.ImportFrom):
+                if node.level:
+                    continue
+                if (node.module or "").split(".")[0] in ("core", "app"):
+                    return False
+    return True
+
+
 class NoPrivateRuntimeDependencyTests(unittest.TestCase):
     def test_no_module_in_this_repository_imports_a_private_runtime(self) -> None:
         self.assertTrue(
-            _bootstrap.repository_has_no_private_runtime_dependency(),
+            _no_private_runtime_dependency(PROJECT_ROOT),
             "a module under skills/ imports core or app; LuoHai must be self-contained",
         )
 
