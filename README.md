@@ -15,11 +15,6 @@ cell and range evidence, keeps raw and rendered values distinct, and reconstruct
 citations that can be re-checked. Ambiguity and loss are reported, never resolved
 by first match.
 
-Nothing is inferred silently: a cell that is present but blank, a cell that is
-not in the sheet at all, a formula with no cached value and a value that could
-not be read are four different facts, and they are reported as four different
-things.
-
 * **LuoHai does not require the private SeaFlow base for standalone use.** It can
   be cloned, tested and used on its own.
 * **SeaFlow integration is optional.** When used with SeaFlow, LuoHai acts as an
@@ -32,6 +27,28 @@ things.
   <img src="docs/assets/luohai-comic.png" alt="LuoHai（海珞）Skill comic" />
 </p>
 
+## The problem LuoHai solves
+
+A workbook is a document, not a database. The value you see in a cell may be
+typed, inherited from a shared string, produced by a formula, or absent because
+the cell simply is not there. Most tooling quietly collapses those cases: it
+evaluates the formula, renders the number, or fills the gap with an empty string —
+and the result can no longer be traced back to what the file actually contained.
+
+LuoHai takes the opposite approach. It reads the workbook as written, keeps raw and
+rendered values separate, states plainly whether a cell is **empty** (present but
+blank) or **absent** (not in the sheet at all), reports error cells as errors
+rather than blanks, and surfaces everything it did not read instead of dropping
+it. Every unit it emits carries coordinates precise enough to rebuild a citation
+that can be re-checked against the original file.
+
+> **Organising evidence ≠ creating evidence.**
+> **整理证据 ≠ 创造证据**
+>
+> LuoHai normalises and structures tabular evidence it actually observed. It does
+> not fabricate missing values, infer facts the file does not support, or act as a
+> general-purpose analytics engine.
+
 ## Capabilities
 
 These are the capabilities the Skill declares at runtime. Anything not listed is
@@ -42,18 +59,40 @@ not implemented.
 | Tabular evidence units | supported | one evidence unit per detected table region, each with its worksheet and table context |
 | Citation reconstruction | supported | the unit payload carries per-cell addresses, row labels and column headers sufficient to rebuild a native citation |
 | Range location | supported | a rectangular range resolves to a citation covering every coordinate — a rectangle keeps its holes |
+| Empty versus absent | supported | a present-but-blank cell is `empty`; a cell not in the sheet is `absent` — two different facts |
+| Error state | supported | an error cell is reported as an error, not as blank |
+| Formula text | supported | formula text is read from `<f>` and kept separate from the cached value |
+| Hidden sheet state | supported | sheet state is read from `workbook.xml` |
 | Declared-table observation | partial | OOXML table parts (`xl/tables`) are read and compared with the inferred regions; declared metadata is never treated as authority |
 | Merged-cell state | partial | merged ranges are read; a covered address is reported as merged-from rather than as a value |
 | Rich-text runs | partial | inline and shared-string text is flattened; run-level formatting is lost |
 | Confidence scoring | unsupported | uncertainty and loss states are recorded, but evidence is not scored or ranked |
 | CSV input | unsupported | this slice is XLSX only, by architecture decision |
-| Formula evaluation | unsupported | read-only; formula text is read from `<f>` and kept separate from the cached value, which is never evaluated |
+| Legacy `.xls` (BIFF) | unsupported | the binary format is not parsed; it is refused, not attempted |
+| Formula evaluation | unsupported | read-only; formula text is read, and the cached value is never evaluated or recomputed |
 | Number-format display | unsupported | no style or number-format rendering; rendered equals raw for numbers |
 | Cell comments | unsupported | comments and threaded comments are not read |
 | Embedded objects | unsupported | charts, images, OLE objects and pivot tables are not read |
 | Large-file streaming | unknown | there is no streaming path; the whole package is read into memory |
 
 LuoHai reads the format it implements and refuses the rest rather than guessing.
+
+## How provenance is preserved
+
+* **Raw and rendered stay separate.** A cell's rendered value never silently
+  replaces the raw value it came from.
+* **A blank cell is not a missing cell.** `empty` and `absent` are distinct states
+  and are reported as distinct.
+* **Not-read content is surfaced.** Comments, drawings, charts, media, pivot
+  tables and VBA are reported as unread content rather than ignored, so a clean
+  reading cannot hide them.
+* **Declared metadata is not authority.** Table declarations found in the package
+  are compared against the regions that were actually observed; neither overrides
+  the other.
+* **Ambiguity is a result.** A selector matching more than one location returns
+  every candidate and selects none — there is no first-match fallback.
+* **Evidence is bound to bytes.** Units carry the artifact's content digest, so an
+  extracted citation can be checked against the exact file it came from.
 
 ## Installation
 
@@ -84,9 +123,9 @@ for unit in result.units:
 
 `run_tabular_evidence` accepts a filesystem path, raw bytes, or a `TableArtifact`
 you build yourself. It returns a run result carrying the evidence units, the run
-diagnostics, and an honest assessment of whether the read was complete. A
-workbook the Skill cannot read still returns a result — with the loss or the
-refusal recorded — rather than raising.
+diagnostics, and an honest assessment of whether the read was complete. A workbook
+the Skill cannot read still returns a result — with the loss or the refusal
+recorded — rather than raising.
 
 Lower-level entry points are available if you want to drive the pieces:
 
@@ -143,6 +182,8 @@ python tests/run_all.py --no-calamine    # same, stated explicitly
 * **Unread package parts are reported, not ignored.** Comments, drawings, charts,
   media, pivot tables and VBA are surfaced as unread content.
 * **No cross-Skill ranking.** Nothing here ranks a table against anything else.
+* **Whole package in memory.** There is no streaming path, so very large
+  workbooks are not addressed.
 * **Platform qualification.** Qualified on Windows with CPython 3.13.14. The
   deterministic path is standard-library only, so nothing pins it to that
   environment, but other versions and platforms have not been qualified.
