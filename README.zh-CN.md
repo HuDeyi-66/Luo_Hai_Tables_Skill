@@ -2,7 +2,7 @@
   <img src="docs/assets/luohai-header.png" alt="LuoHai（海珞）" />
 </p>
 
-[English](README.md) | [简体中文](README.zh-CN.md)
+[English](README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md)
 
 # LuoHai（海珞）
 
