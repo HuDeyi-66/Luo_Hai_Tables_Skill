@@ -29,6 +29,7 @@ survive hostile input. It is a fixture backend, not a general parser -- see
 from __future__ import annotations
 
 import re
+import posixpath
 import zipfile
 from dataclasses import dataclass, field
 from typing import Any, Iterator
@@ -61,6 +62,50 @@ _RANGE_RE = re.compile(r"^([A-Z]+[0-9]+)(?::([A-Z]+[0-9]+))?$")
 
 class XlsxPackageError(ValueError):
     """The package is not a readable XLSX container."""
+
+
+MAX_PACKAGE_MEMBERS = 1024
+MAX_PART_BYTES = 8 * 1024 * 1024
+MAX_PACKAGE_BYTES = 32 * 1024 * 1024
+MAX_EXPANDED_CELLS = 100000
+MAX_ROW = 1048576
+MAX_COLUMN = 16384
+
+
+def _check_rectangle(start_row: int, end_row: int, start_col: int, end_col: int) -> None:
+    if end_row < start_row or end_col < start_col:
+        raise XlsxPackageError("invalid reversed worksheet range")
+    if (end_row - start_row + 1) * (end_col - start_col + 1) > MAX_EXPANDED_CELLS:
+        raise XlsxPackageError("worksheet rectangular expansion exceeds supported cell budget")
+
+
+def _part_target(base: str, target: str, mode: str | None = None) -> str:
+    if mode == "External":
+        raise XlsxPackageError("external worksheet/table relationships are unsupported")
+    if not target or any(token in target for token in ("\\", ":", "?", "#")):
+        raise XlsxPackageError("unsupported or empty package relationship target")
+    resolved = posixpath.normpath(target.lstrip("/") if target.startswith("/")
+                                  else posixpath.join(posixpath.dirname(base), target))
+    if resolved in (".", "..") or resolved.startswith("../"):
+        raise XlsxPackageError("relationship target escapes package root")
+    return resolved
+
+
+def _check_package(archive: zipfile.ZipFile) -> None:
+    entries = archive.infolist()
+    if len(entries) > MAX_PACKAGE_MEMBERS:
+        raise XlsxPackageError("package member count exceeds supported budget")
+    if sum(entry.file_size for entry in entries) > MAX_PACKAGE_BYTES:
+        raise XlsxPackageError("package expanded bytes exceed supported budget")
+    names = set()
+    for entry in entries:
+        if entry.file_size > MAX_PART_BYTES:
+            raise XlsxPackageError("package part expanded bytes exceed supported budget")
+        if entry.filename in names:
+            raise XlsxPackageError("duplicate package member identity")
+        names.add(entry.filename)
+        if "\\" in entry.filename or entry.filename.startswith("/") or ".." in entry.filename.split("/"):
+            raise XlsxPackageError("unsafe package member path")
 
 
 def _q(tag: str, ns: str = NS_MAIN) -> str:
@@ -100,7 +145,10 @@ def parse_cell_reference(ref: str) -> tuple[int, int]:
     match = _CELL_RE.match(ref.upper().replace("$", ""))
     if not match:
         raise ValueError(f"invalid cell reference: {ref!r}")
-    return int(match.group(2)), column_letter_to_index(match.group(1))
+    row, column = int(match.group(2)), column_letter_to_index(match.group(1))
+    if not (1 <= row <= MAX_ROW and 1 <= column <= MAX_COLUMN):
+        raise ValueError(f"cell reference outside supported workbook bounds: {ref!r}")
+    return row, column
 
 
 def format_cell_reference(row: int, column: int) -> str:
@@ -273,14 +321,14 @@ def _parse_shared_strings(archive: zipfile.ZipFile) -> tuple[str, ...]:
 def _parse_workbook_sheets(archive: zipfile.ZipFile) -> list[tuple[str, str, str]]:
     """Return ``(name, state, part_path)`` in workbook order."""
     workbook = _read_xml(archive, "xl/workbook.xml")
-    rels: dict[str, str] = {}
+    rels: dict[str, tuple[str, str | None, str | None]] = {}
     if "xl/_rels/workbook.xml.rels" in archive.namelist():
         rel_root = _read_xml(archive, "xl/_rels/workbook.xml.rels")
         for rel in rel_root.findall(_q("Relationship", NS_PKG_REL)):
-            target = rel.get("Target", "")
-            if not target.startswith("/"):
-                target = "xl/" + target.lstrip("./")
-            rels[rel.get("Id", "")] = target.lstrip("/")
+            identity = rel.get("Id", "")
+            if not identity or identity in rels:
+                raise XlsxPackageError("missing or duplicate workbook relationship identity")
+            rels[identity] = (rel.get("Target", ""), rel.get("TargetMode"), rel.get("Type"))
 
     sheets_node = workbook.find(_q("sheets"))
     if sheets_node is None:
@@ -291,7 +339,12 @@ def _parse_workbook_sheets(archive: zipfile.ZipFile) -> list[tuple[str, str, str
         name = sheet.get("name") or f"Sheet{position}"
         state = sheet.get("state") or "visible"
         rel_id = sheet.get(f"{{{NS_REL}}}id") or ""
-        part = rels.get(rel_id) or f"xl/worksheets/sheet{position}.xml"
+        if not rel_id or rel_id not in rels:
+            raise XlsxPackageError("worksheet references an unresolved relationship; no default-part fallback")
+        target, mode, relationship_type = rels[rel_id]
+        if relationship_type != _REL_SHEET:
+            raise XlsxPackageError("worksheet references a non-worksheet relationship")
+        part = _part_target("xl/workbook.xml", target, mode)
         out.append((name, state, part))
     return out
 
@@ -373,11 +426,11 @@ def _parse_sheet(
     for cell in root.iter(_q("c")):
         ref = cell.get("r")
         if not ref:
-            continue
+            raise XlsxPackageError("cell coordinate missing; position inference is unsupported")
         try:
             row, column = parse_cell_reference(ref)
-        except ValueError:
-            continue
+        except ValueError as exc:
+            raise XlsxPackageError(f"invalid cell coordinate: {ref!r}") from exc
         kind, value, formula = _cell_value(cell, shared)
         style = cell.get("s")
         sheet.cells[ref.upper()] = RawCell(
@@ -392,6 +445,9 @@ def _parse_sheet(
             style_index=int(style) if style and style.isdigit() else None,
         )
 
+    if len(sheet.cells) > MAX_EXPANDED_CELLS:
+        raise XlsxPackageError("worksheet observed cell count exceeds supported budget")
+
     # Hidden columns: <cols><col min="3" max="3" hidden="1"/></cols>. The min/max
     # pair is an inclusive 1-based span, so one element can hide many columns.
     hidden_columns: set[int] = set()
@@ -405,6 +461,8 @@ def _parse_sheet(
                 high = int(col.get("max", str(low)))
             except ValueError:
                 continue
+            if not (1 <= low <= high <= MAX_COLUMN):
+                raise XlsxPackageError("hidden column range outside workbook bounds")
             for index in range(low, high + 1):
                 hidden_columns.add(index)
     sheet.hidden_columns = frozenset(hidden_columns)
@@ -441,6 +499,7 @@ def _parse_sheet(
             anchors[start] = ref
             start_row, start_col = parse_cell_reference(start)
             end_row, end_col = parse_cell_reference(end)
+            _check_rectangle(start_row, end_row, start_col, end_col)
             for r in range(start_row, end_row + 1):
                 for c in range(start_col, end_col + 1):
                     address = format_cell_reference(r, c)
@@ -473,10 +532,7 @@ def _parse_declared_tables(
         if not rel_type.endswith("/table"):
             continue
         target = rel.get("Target", "")
-        if target.startswith("/"):
-            resolved = target.lstrip("/")
-        else:
-            resolved = "xl/" + target.replace("../", "").lstrip("./")
+        resolved = _part_target(f"xl/worksheets/sheet{sheet_index}.xml", target, rel.get("TargetMode"))
         targets.append(resolved)
 
     tables: list[DeclaredTable] = []
@@ -526,6 +582,7 @@ def read_package(path: str) -> RawPackage:
         raise XlsxPackageError(f"not a readable ZIP/XLSX container: {exc}") from exc
 
     with archive:
+        _check_package(archive)
         names = tuple(archive.namelist())
         if "xl/workbook.xml" not in names:
             raise XlsxPackageError("package has no xl/workbook.xml")

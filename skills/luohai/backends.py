@@ -25,6 +25,8 @@ Three implementations live in this module:
 
 from __future__ import annotations
 
+from io import BytesIO
+
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Protocol, Sequence, runtime_checkable
 
@@ -433,7 +435,11 @@ class FixtureXlsxBackend:
     def capabilities(self) -> tuple[TableCapability, ...]:
         return _FIXTURE_UNSUPPORTED
 
-    def load(self, path: str, options: Mapping[str, Any] | None = None) -> ObservedWorkbook:
+    def load_bytes(self, payload: bytes, options: Mapping[str, Any] | None = None) -> ObservedWorkbook:
+        """Read the same OOXML package without a temporary file or parser bypass."""
+        return self.load(BytesIO(payload), options)
+
+    def load(self, path: str | BytesIO, options: Mapping[str, Any] | None = None) -> ObservedWorkbook:
         options = dict(options or {})
         warnings: list[str] = []
 

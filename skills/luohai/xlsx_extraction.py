@@ -37,6 +37,7 @@ Design commitments taken from the V2.1 architecture review
 from __future__ import annotations
 
 import uuid
+from .ooxml import XlsxPackageError
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Iterable, Mapping, Sequence
@@ -276,7 +277,7 @@ class TabularEvidenceSkill(TableEvidenceSkill):
     """
 
     skill_id = "LuoHai.TabularEvidence"
-    skill_version = "0.1.0-provisional"
+    skill_version = "0.1.2-provisional"
 
     def __init__(
         self,
@@ -359,7 +360,8 @@ class TabularEvidenceSkill(TableEvidenceSkill):
 
         merged = {**self._defaults, **dict(options or {})}
         path = artifact.location
-        if not path:
+        payload = getattr(artifact, "payload_bytes", None)
+        if not path and payload is None:
             diagnostics.error(
                 "artifact_has_no_location",
                 "artifact carries no readable location; nothing can be read",
@@ -370,7 +372,7 @@ class TabularEvidenceSkill(TableEvidenceSkill):
             )
 
         try:
-            integrity_matches = artifact.verify_file(path)
+            integrity_matches = artifact.verify_bytes(payload) if payload is not None else artifact.verify_file(path)
         except (OSError, ValueError) as exc:
             diagnostics.error(
                 "artifact_integrity_check_failed",
@@ -406,7 +408,7 @@ class TabularEvidenceSkill(TableEvidenceSkill):
             )
 
         choice = self._select_backend(merged, diagnostics)
-        observation = self._safe_load(choice.backend, path, merged, diagnostics)
+        observation = self._safe_load(choice.backend, path, merged, diagnostics, payload)
 
         # A hard backend failure with another candidate available is a
         # fallback event, not a silent downgrade.
@@ -426,17 +428,21 @@ class TabularEvidenceSkill(TableEvidenceSkill):
                     fallback_from=choice.backend.backend_id,
                     fallback_reason="preferred backend reported a fatal load failure",
                 )
-                observation = self._safe_load(alternate, path, merged, diagnostics)
+                observation = self._safe_load(alternate, path, merged, diagnostics, payload)
 
-        units = self._build_units(
-            artifact=artifact,
-            source_id=resolved_source_id,
-            observation=observation,
-            producer=producer,
-            merged=merged,
-            diagnostics=diagnostics,
-            fallback=choice,
-        )
+        try:
+            units = self._build_units(
+                artifact=artifact,
+                source_id=resolved_source_id,
+                observation=observation,
+                producer=producer,
+                merged=merged,
+                diagnostics=diagnostics,
+                fallback=choice,
+            )
+        except XlsxPackageError as exc:
+            diagnostics.error("evidence_expansion_limit", str(exc), scope=artifact.artifact_id, fatal=True)
+            return self._finish(artifact, producer, diagnostics, run_id, started_at, ())
 
         self._record_diagnostics(observation, choice, diagnostics, units)
         result = self._finish(
@@ -492,9 +498,10 @@ class TabularEvidenceSkill(TableEvidenceSkill):
     def _safe_load(
         self,
         backend: TabularBackend,
-        path: str,
+        path: str | None,
         options: Mapping[str, Any],
         diagnostics: TableRunDiagnostics,
+        payload: bytes | None = None,
     ) -> ObservedWorkbook:
         """Call ``backend.load`` and convert an unexpected exception into evidence.
 
@@ -508,6 +515,11 @@ class TabularEvidenceSkill(TableEvidenceSkill):
         containment is implemented and documented in ``CalamineBackend``.
         """
         try:
+            if payload is not None:
+                loader = getattr(backend, "load_bytes", None)
+                if not callable(loader):
+                    raise ValueError("selected backend does not support byte input")
+                return loader(payload, options)
             return backend.load(path, options)
         except Exception as exc:
             problem = f"{type(exc).__name__}: {exc}"
@@ -847,7 +859,7 @@ class TabularEvidenceSkill(TableEvidenceSkill):
             address=address,
             content=content,
             content_raw={
-                "note": "per-cell raw and rendered values live in payload.tabular.cells"
+                "note": "per-cell unformatted stored/cached values live in payload.tabular.cells.value"
             },
             content_rendered={
                 "note": "rendered equal to raw; no number-format rendering in V2.1"
@@ -932,6 +944,8 @@ class TabularEvidenceSkill(TableEvidenceSkill):
         )
         diagnostics.stats = {
             "unit_count": len(units),
+            "workbook_date_system": observation.date_system,
+            "display_value_semantics": "raw_or_cached_values_not_excel_formatted_display",
             "sheet_count": len(observation.sheets),
             "represented_sheets": represented,
             "unrepresented_sheets": sorted(

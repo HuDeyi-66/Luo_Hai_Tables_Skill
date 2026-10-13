@@ -12,10 +12,12 @@ network, and nothing here imports a private implementation.
 from __future__ import annotations
 
 from pathlib import Path
+from datetime import datetime, timezone
+import uuid
 from typing import Any, Mapping
 
 from .backends import FixtureXlsxBackend, TabularBackend
-from .contracts import TableArtifact, TableEvidenceSkill, TableRunResult
+from .contracts import TableArtifact, TableContractError, TableEvidenceSkill, TableRunDiagnostics, TableRunResult, TableProducer
 
 __all__ = ["run_tabular_evidence", "evidence_skill", "workbook_artifact"]
 
@@ -51,6 +53,7 @@ def workbook_artifact(
             media_type=media_type
             or "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             byte_length=len(payload),
+            payload_bytes=payload,
         )
     path = Path(source)
     return TableArtifact.from_file(
@@ -107,8 +110,20 @@ def run_tabular_evidence(
             print(unit.address.value, unit.loss)
         print(result.is_complete_success)
     """
-    artifact = workbook_artifact(source, artifact_id=artifact_id, media_type=media_type)
     skill = evidence_skill(reader)
+    try:
+        artifact = workbook_artifact(source, artifact_id=artifact_id, media_type=media_type)
+    except (OSError, TableContractError) as exc:
+        diagnostics = TableRunDiagnostics(options_echo=dict(options or {}))
+        diagnostics.error("artifact_input_unreadable", f"{type(exc).__name__}: {exc}",
+                          scope=source_id or artifact_id, fatal=True)
+        run_id = f"run-{uuid.uuid4().hex[:12]}"
+        timestamp = datetime.now(timezone.utc).isoformat()
+        return TableRunResult(artifact=None, skill_id=skill.skill_id,
+                              producer=TableProducer(skill_id=skill.skill_id,
+                                  skill_version=skill.skill_version, run_id=run_id,
+                                  method="input_validation"), diagnostics=diagnostics,
+                              invocation_id=run_id, started_at=timestamp, finished_at=timestamp)
     return skill.run(
         artifact,
         source_id=source_id or artifact.artifact_id,

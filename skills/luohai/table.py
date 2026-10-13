@@ -207,6 +207,7 @@ def _region_from_rows(sheet: ObservedSheet, rows: Sequence[int]) -> TableRegion 
         )
 
     # Empty/absent classification for every coordinate inside the bounds.
+    ooxml._check_rectangle(min_row, max_row, min_col, max_col)
     empty_cells: list[str] = []
     absent_cells: list[str] = []
     for row in range(min_row, max_row + 1):
