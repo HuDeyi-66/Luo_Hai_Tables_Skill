@@ -1,0 +1,38 @@
+{
+  "skill": "LuoHai",
+  "version": "1.0.0",
+  "implementation": "skills/luohai/operators_v1.py",
+  "operators": [
+    {
+      "name": "ReconstructVerify",
+      "filename": "reconstruct-verify-v1.png",
+      "subtitle": "Keep byte identity, address reconstruction and cell verification separate.",
+      "signature": "\\mathrm{ReconstructVerify}_{v1}:\\mathcal{A}\\times\\mathcal{E}\\times\\mathcal{S}\\times\\mathcal{P}\\longrightarrow\\mathcal{V}",
+      "inputs": ["$\\mathcal{A}$  TableArtifact;  $\\mathcal{E}$  TableEvidenceUnit", "$\\mathcal{S}$  CitationSelector: cell or range", "$\\mathcal{P}$  VerificationPolicy: level and cell budget"],
+      "outputs": ["$\\mathcal{V}$  VerificationResult", "Separate checked-level flags and original facts", "Native citation, typed outcomes and diagnostics"],
+      "relation_title": "Selected canonical fields; supported stdlib OOXML cases",
+      "relations": ["v_{\\mathrm{cell}}\\Rightarrow v_{\\mathrm{address}}\\Rightarrow v_{\\mathrm{bytes}}", "v_{\\mathrm{cell}}\\Rightarrow\\pi_F(\\widehat E_S)=\\pi_F(\\mathrm{OOXML}(A_{\\mathrm{bytes}})_S)"],
+      "lower_title": "Verification levels and typed outcomes",
+      "notes": ["$\\widehat E_S$: reconstructed selected evidence; F: row, column, value, kind, formula, merge, hidden.", "Levels: byte identity / address reconstruction / stored observations; interpretation unsupported.", "verified · ambiguous · unresolved · integrity_failure · unsupported", "unavailable · corrupt · mismatch · invalid_input; formula text and stored cache stay distinct."],
+      "limit": "Selected-cell checks do not establish formula results, Excel display or workbook completeness.",
+      "source_symbols": ["VerificationPolicy", "VerificationResult", "reconstruct_verify"],
+      "contract": "docs/operators-v1.md#reconstruct_verify"
+    },
+    {
+      "name": "AccountLoss",
+      "filename": "account-loss-v1.png",
+      "subtitle": "Observe recorded declarations without mutating the extraction run.",
+      "signature": "\\mathrm{AccountLoss}_{v1}:\\mathcal{T}\\longrightarrow\\mathcal{L}",
+      "inputs": ["$\\mathcal{T}$  TableRunResult", "Units, cell losses, declared risks and capabilities", "Producer, provenance and run diagnostics"],
+      "outputs": ["$\\mathcal{L}$  LossAccountingResult", "Deduplicated counts and unresolved states", "Declared versus justified complete-success flag"],
+      "relation_title": "Deduplicated declarations and qualified contract success",
+      "relation_step": 0.073,
+      "relations": ["n_k=\\sum_{u\\in U_{\\mathrm{unique}}}\\mathbf{1}\\!\\left[k\\in L_u\\cup L_{\\mathrm{cells}(u)}\\right]", "c_{\\mathrm{justified}}=c_{\\mathrm{declared}}\\wedge(I=\\varnothing)\\wedge(X=\\varnothing)"],
+      "lower_title": "Read-only accounting and explicit unknowns",
+      "notes": ["$\\sigma\\in\\{\\mathrm{accounted},\\mathrm{inconsistent},\\mathrm{unknown}\\}$; I: inconsistencies; X: unresolved states.", "$T_{\\mathrm{after}}=T_{\\mathrm{before}}$; repeated unit / kind declarations are counted once.", "Unsupported capabilities and unsurfaced risks prevent a justified complete-success claim.", "$\\mathrm{coverage}_{\\mathrm{workbook}}=\\mathrm{unknown}$, even when no losses are recorded."],
+      "limit": "Counts describe unit loss declarations; they do not prove independent source-loss events.",
+      "source_symbols": ["LossAccountingResult", "account_loss"],
+      "contract": "docs/operators-v1.md#account_loss"
+    }
+  ]
+}

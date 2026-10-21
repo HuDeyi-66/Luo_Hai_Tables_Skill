@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "luohai-reconstruct-verify/1.0.0",
+  "$ref": "#/$defs/VerificationResult",
+  "$defs": {
+    "VerificationResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema": {
+          "const": "luohai-reconstruct-verify/1.0.0"
+        },
+        "operator": {
+          "const": "RECONSTRUCT_VERIFY"
+        },
+        "status": {
+          "enum": [
+            "verified",
+            "ambiguous",
+            "unresolved",
+            "integrity_failure",
+            "unsupported",
+            "unavailable",
+            "corrupt",
+            "mismatch",
+            "invalid_input"
+          ]
+        },
+        "artifact_id": {
+          "type": "string"
+        },
+        "source_id": {
+          "type": "string"
+        },
+        "unit_id": {
+          "type": "string"
+        },
+        "content_digest": {
+          "type": "string"
+        },
+        "policy": {
+          "$ref": "#/$defs/VerificationPolicy"
+        },
+        "artifact_identity_verified": {
+          "type": "boolean"
+        },
+        "citation_address_reconstructable": {
+          "type": "boolean"
+        },
+        "stored_observations_verified": {
+          "type": "boolean"
+        },
+        "value_interpretation": {
+          "type": "string"
+        },
+        "citation": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": {}
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "original_observations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": {}
+          }
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "verified_cell_fields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "claim_scope": {
+          "type": "string"
+        },
+        "result_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "operator",
+        "status",
+        "artifact_id",
+        "source_id",
+        "unit_id",
+        "content_digest",
+        "policy",
+        "artifact_identity_verified",
+        "citation_address_reconstructable",
+        "stored_observations_verified",
+        "value_interpretation",
+        "citation",
+        "original_observations",
+        "diagnostics",
+        "verified_cell_fields",
+        "claim_scope",
+        "result_id"
+      ]
+    },
+    "VerificationPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "level": {
+          "enum": [
+            "artifact",
+            "address",
+            "observations",
+            "interpretation"
+          ]
+        },
+        "max_cells": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "level",
+        "max_cells"
+      ]
+    }
+  }
+}

@@ -14,3 +14,21 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+
+# Publication boundary: local/private material and generated outputs
+/private_assets/
+/local_store/
+/interviews/
+/recordings/
+/expert_material/
+.env
+.env.*
+*.key
+*.pem
+*.log
+__pycache__/
+*.py[cod]
+.venv*/
+build/
+dist/
+*.egg-info/

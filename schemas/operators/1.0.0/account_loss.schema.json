@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "luohai-loss-accounting/1.0.0",
+  "$ref": "#/$defs/LossAccountingResult",
+  "$defs": {
+    "LossAccountingResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema": {
+          "const": "luohai-loss-accounting/1.0.0"
+        },
+        "operator": {
+          "const": "ACCOUNT_LOSS"
+        },
+        "status": {
+          "enum": [
+            "accounted",
+            "inconsistent",
+            "unknown"
+          ]
+        },
+        "input_digest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "observed_losses_by_kind": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          }
+        },
+        "unit_losses": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": {}
+          }
+        },
+        "declared_risks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "unsurfaced_risks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "unsupported_capabilities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "inconsistencies": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "unresolved_states": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "declared_complete_success": {
+          "type": "boolean"
+        },
+        "complete_success_justified": {
+          "type": "boolean"
+        },
+        "diagnostics": {
+          "type": "object",
+          "additionalProperties": {}
+        },
+        "count_semantics": {
+          "type": "string"
+        },
+        "workbook_observation_completeness": {
+          "type": "string"
+        },
+        "result_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "operator",
+        "status",
+        "input_digest",
+        "observed_losses_by_kind",
+        "unit_losses",
+        "declared_risks",
+        "unsurfaced_risks",
+        "unsupported_capabilities",
+        "inconsistencies",
+        "unresolved_states",
+        "declared_complete_success",
+        "complete_success_justified",
+        "diagnostics",
+        "count_semantics",
+        "workbook_observation_completeness",
+        "result_id"
+      ]
+    }
+  }
+}

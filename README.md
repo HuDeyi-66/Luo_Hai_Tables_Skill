@@ -1,3 +1,7 @@
+> Pre-3.6 publication: current bounded implementation and synthetic checks.
+> See [qualification, installation and test commands](docs/PRE36_QUALIFICATION.md).
+> Internal engineering acceptance is distinct from independent external review; V3.6 is pending.
+
 <p align="center">
   <img src="docs/assets/luohai-header.png" alt="LuoHai（海珞）" />
 </p>
@@ -215,6 +219,61 @@ dependency. Neither Skill imports the other, in either direction, and that
 isolation is asserted by test.
 
 * ShanHai repository: <https://github.com/HuDeyi-66/Shan_Hai_Code_Skill>
+
+## Formal Evidence Operators
+
+The opt-in `skills.luohai.operators_v1` module exposes the bounded **1.0.0**
+contracts below. These rendered equations describe the implemented interfaces
+and tested checks; they do not prove universal extraction completeness. The
+existing evidence-fidelity disclosures and backend limitations still apply.
+
+This operator section is currently maintained in English. The Chinese and
+Japanese README translations do not yet include it; consult this section for
+the current operator contracts.
+
+### ReconstructVerify
+
+Separates original artifact identity, native citation reconstruction and
+original-workbook observation checks into explicit verification levels.
+
+![ReconstructVerify 1.0.0: TableArtifact, TableEvidenceUnit, CitationSelector and VerificationPolicy map to VerificationResult with separate byte, address and selected-observation flags.](docs/assets/operators/reconstruct-verify-v1.png)
+
+**Types:** `TableArtifact`, `TableEvidenceUnit`, `CitationSelector` and
+`VerificationPolicy` produce a `VerificationResult` containing checked-level
+flags, the native citation, original cell observations and typed diagnostics.
+Cell and range selectors preserve empty, absent, merged and error distinctions;
+formula text remains separate from its stored cached value.
+
+**Scope:** original-cell comparison is limited to selected canonical fields in
+supported stdlib OOXML cases. Address reconstruction alone does not verify the
+original workbook. Formula evaluation, current calculated results, formatted
+Excel display, inferred table semantics and whole-workbook completeness are
+not established. Ambiguity, mismatch, corrupt or unsupported input and unavailable
+verification remain typed non-success outcomes.
+See the [ReconstructVerify 1.0.0 contract](docs/operators-v1.md#reconstruct_verify)
+and [transport schema](schemas/operators/1.0.0/reconstruct_verify.schema.json).
+
+### AccountLoss
+
+Produces a deterministic, read-only accounting of recorded losses, declared
+risks, unsupported capabilities and producer/provenance inconsistencies.
+
+![AccountLoss 1.0.0: TableRunResult maps to LossAccountingResult with deduplicated unit-loss counts, explicit unknown states and a qualified contract-success flag; workbook coverage stays unknown.](docs/assets/operators/account-loss-v1.png)
+
+**Types:** `TableRunResult` supplies units, cell losses, producer/provenance data
+and diagnostics. `LossAccountingResult` reports deduplicated unit/kind
+declarations, unsurfaced risks, inconsistencies, unresolved states and whether
+the declared complete-success claim is justified under the recorded contract.
+
+**Scope:** the input run is not mutated. Repeated loss declarations are not
+independent source-loss events. An absence of recorded losses does not prove all
+workbook content was observed; workbook observation completeness remains
+`unknown`. Unsupported capabilities and unsurfaced risks prevent justification;
+non-JSON run values yield explicit unknown accounting.
+See the [AccountLoss 1.0.0 contract](docs/operators-v1.md#account_loss) and
+[transport schema](schemas/operators/1.0.0/account_loss.schema.json).
+
+The [rendering source and pinned documentation-only dependencies](docs/assets/operators/README.md) are retained with the PNGs.
 
 ## License
 
